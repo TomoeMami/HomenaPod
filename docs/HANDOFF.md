@@ -67,3 +67,29 @@ bash scripts/build.sh                  # 工具链就绪后构建
 - `PlayerManager` 的 AVPlayer 状态机、AVSession/后台长时任务需真机验证。
 - `WorkScheduler` 周期任务最小 2 小时。
 - 页面 `LazyForEach` 数据源实现需 ArkUI 编译验证。
+
+## 局域网克隆（Git daemon 已启动）
+
+本机 IP：`192.168.3.193`，Git daemon 端口 `9418`。
+
+- 克隆完整工作区（含文档与项目）：
+  ```bash
+  git clone git://192.168.3.193/antennapod-harmony.git
+  cd antennapod-harmony/antennapod-harmony
+  ```
+- 克隆纯 Harmony 工程（DevEco 直接打开）：
+  ```bash
+  git clone git://192.168.3.193/harmony-project.git
+  cd harmony-project
+  ```
+
+如果 daemon 未运行，在服务端执行：
+
+```bash
+git daemon --base-path=/home/riko/homennapodcast/remote   --export-all --reuseaddr --verbose --informative-errors --port=9418 &
+```
+
+也可以使用 SSH/共享目录方式 clone 本机工作区：
+```bash
+git clone /home/riko/homennapodcast
+```
