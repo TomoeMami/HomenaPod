@@ -31,18 +31,18 @@
 - 存储：relationalStore（复用 AntennaPod 表结构）+ preferences
 - 执行：单执行者顺序执行任务清单
 
-## 局域网 Git 克隆
+## 局域网 Git 克隆（git+ssh）
 
-本机 Git daemon 已启动（IP `192.168.3.193`，端口 `9418`）：
+本机 Git daemon（9418）已停用，改用 SSH 克隆：主机 `192.168.3.193`，端口 `22`，用户 `riko`，公钥认证（本机 sshd 已启用）。
 
 ```bash
 # 完整工作区（含计划/文档/工程）
-git clone git://192.168.3.193/antennapod-harmony.git
+git clone ssh://riko@192.168.3.193/home/riko/homennapodcast/remote/antennapod-harmony.git
 cd antennapod-harmony/antennapod-harmony
 
 # 纯 Harmony 工程（DevEco 直接打开）
-git clone git://192.168.3.193/harmony-project.git
+git clone ssh://riko@192.168.3.193/home/riko/homennapodcast/remote/harmony-project.git
 cd harmony-project
 ```
 
-详细说明见 `docs/HANDOFF.md`。
+> 克隆设备需已把公钥加入本机 `~/.ssh/authorized_keys`（或使用已有授权密钥）。详细说明见 `docs/HANDOFF.md`。

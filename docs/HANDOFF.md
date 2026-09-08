@@ -68,28 +68,22 @@ bash scripts/build.sh                  # 工具链就绪后构建
 - `WorkScheduler` 周期任务最小 2 小时。
 - 页面 `LazyForEach` 数据源实现需 ArkUI 编译验证。
 
-## 局域网克隆（Git daemon 已启动）
+## 局域网克隆（git+ssh）
 
-本机 IP：`192.168.3.193`，Git daemon 端口 `9418`。
+Git daemon（9418）已停用。请通过 SSH 克隆：主机 `192.168.3.193`，端口 `22`，用户 `riko`，公钥认证（本机 sshd 已启用并监听局域网）。
 
 - 克隆完整工作区（含文档与项目）：
   ```bash
-  git clone git://192.168.3.193/antennapod-harmony.git
+  git clone ssh://riko@192.168.3.193/home/riko/homennapodcast/remote/antennapod-harmony.git
   cd antennapod-harmony/antennapod-harmony
   ```
 - 克隆纯 Harmony 工程（DevEco 直接打开）：
   ```bash
-  git clone git://192.168.3.193/harmony-project.git
+  git clone ssh://riko@192.168.3.193/home/riko/homennapodcast/remote/harmony-project.git
   cd harmony-project
   ```
 
-如果 daemon 未运行，在服务端执行：
+克隆设备要求：
 
-```bash
-git daemon --base-path=/home/riko/homennapodcast/remote   --export-all --reuseaddr --verbose --informative-errors --port=9418 &
-```
-
-也可以使用 SSH/共享目录方式 clone 本机工作区：
-```bash
-git clone /home/riko/homennapodcast
-```
+- 公钥已加入服务端 `~/.ssh/authorized_keys`（Windows 可用 Git Bash 的 `ssh`，首次连接确认主机指纹）。
+- 服务端本地仍可直接 `git clone /home/riko/homennapodcast`。
