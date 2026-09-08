@@ -117,7 +117,7 @@ export struct SettingsPage {
     .height('100%')
   }
 
-  onAppear(): void {
+  aboutToAppear(): void {
     this.theme = UserPreferences.getTheme();
     this.streamOverDownload = UserPreferences.getStreamOverDownload();
     const speed: number = UserPreferences.getDefaultPlaybackSpeed();

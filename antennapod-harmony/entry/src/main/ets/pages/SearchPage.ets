@@ -74,7 +74,7 @@ struct SearchPage {
     .height('100%')
   }
 
-  onAppear(): void {
+  aboutToAppear(): void {
     const params = router.getParams() as SearchParams;
     if (params !== undefined && params.term !== undefined) {
       this.term = params.term;

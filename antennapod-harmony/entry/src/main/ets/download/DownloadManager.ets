@@ -3,7 +3,7 @@ import request from '@ohos.request';
 import common from '@ohos.app.ability.common';
 import { FeedMedia } from '../model/FeedMedia';
 import { EpisodeRepository } from '../db/repositories/EpisodeRepository';
-import { EventHub, EventType } from '../events/EventHub';
+import { EventHub, EventType, EpisodeDownloadData } from '../events/EventHub';
 import { MimeTypeUtils } from '../utils/MimeTypeUtils';
 import { Logger } from '../utils/Logger';
 
@@ -36,27 +36,31 @@ export class DownloadManager {
     const task: request.DownloadTask = await request.downloadFile(DownloadManager.context, config);
     DownloadManager.tasks.set(media.id, task);
     DownloadManager.statusMap.set(media.id, 'RUNNING');
-    EventHub.publish(EventType.EPISODE_DOWNLOAD, { mediaId: media.id, state: 'RUNNING' });
+    const runningData: EpisodeDownloadData = { mediaId: media.id, state: 'RUNNING' };
+    EventHub.publish(EventType.EPISODE_DOWNLOAD, runningData);
 
     task.on('progress', (receivedSize: number, totalSize: number) => {
-      EventHub.publish(EventType.EPISODE_DOWNLOAD, {
+      const progressData: EpisodeDownloadData = {
         mediaId: media.id,
         state: 'PROGRESS',
         received: receivedSize,
         total: totalSize
-      });
+      };
+      EventHub.publish(EventType.EPISODE_DOWNLOAD, progressData);
     });
     task.on('complete', () => {
       DownloadManager.tasks.delete(media.id);
       DownloadManager.statusMap.set(media.id, 'DONE');
       EpisodeRepository.updateMediaFile(media.id, filePath, media.size);
-      EventHub.publish(EventType.EPISODE_DOWNLOAD, { mediaId: media.id, state: 'DONE', filePath: filePath });
+      const doneData: EpisodeDownloadData = { mediaId: media.id, state: 'DONE', filePath: filePath };
+      EventHub.publish(EventType.EPISODE_DOWNLOAD, doneData);
       Logger.info(TAG, 'download complete ' + media.id);
     });
     task.on('fail', (err: number) => {
       DownloadManager.tasks.delete(media.id);
       DownloadManager.statusMap.set(media.id, 'FAILED');
-      EventHub.publish(EventType.EPISODE_DOWNLOAD, { mediaId: media.id, state: 'FAILED', code: err });
+      const failData: EpisodeDownloadData = { mediaId: media.id, state: 'FAILED', code: err };
+      EventHub.publish(EventType.EPISODE_DOWNLOAD, failData);
     });
   }
 
@@ -65,7 +69,8 @@ export class DownloadManager {
     if (task !== undefined) {
       await task.pause();
       DownloadManager.statusMap.set(mediaId, 'PAUSED');
-      EventHub.publish(EventType.EPISODE_DOWNLOAD, { mediaId: mediaId, state: 'PAUSED' });
+      const pausedData: EpisodeDownloadData = { mediaId: mediaId, state: 'PAUSED' };
+      EventHub.publish(EventType.EPISODE_DOWNLOAD, pausedData);
     }
   }
 
@@ -74,7 +79,8 @@ export class DownloadManager {
     if (task !== undefined) {
       await task.resume();
       DownloadManager.statusMap.set(mediaId, 'RUNNING');
-      EventHub.publish(EventType.EPISODE_DOWNLOAD, { mediaId: mediaId, state: 'RUNNING' });
+      const resumedData: EpisodeDownloadData = { mediaId: mediaId, state: 'RUNNING' };
+      EventHub.publish(EventType.EPISODE_DOWNLOAD, resumedData);
     }
   }
 
@@ -85,7 +91,8 @@ export class DownloadManager {
       DownloadManager.tasks.delete(mediaId);
     }
     DownloadManager.statusMap.delete(mediaId);
-    EventHub.publish(EventType.EPISODE_DOWNLOAD, { mediaId: mediaId, state: 'REMOVED' });
+    const removedData: EpisodeDownloadData = { mediaId: mediaId, state: 'REMOVED' };
+    EventHub.publish(EventType.EPISODE_DOWNLOAD, removedData);
   }
 
   static getStatus(mediaId: number): string {

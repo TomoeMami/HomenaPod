@@ -105,7 +105,7 @@ struct FeedDetailPage {
       })
   }
 
-  onAppear(): void {
+  aboutToAppear(): void {
     const params = router.getParams() as FeedDetailParams;
     if (params !== undefined && params.feedId !== undefined) {
       this.load(params.feedId);

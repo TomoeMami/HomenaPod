@@ -1,5 +1,5 @@
 // Port of: playback/service/internal/{SleepTimer,EpisodeSleepTimer,ClockSleepTimer}.java
-import { EventHub, EventType } from '../events/EventHub';
+import { EventHub, EventType, SleepTimerData } from '../events/EventHub';
 
 export class SleepTimer {
   private static timerId: number = -1;
@@ -20,9 +20,11 @@ export class SleepTimer {
         }
         return;
       }
-      EventHub.publish(EventType.SLEEP_TIMER_UPDATED, { remainingMs: SleepTimer.remainingMs });
+      const tickData: SleepTimerData = { remainingMs: SleepTimer.remainingMs };
+      EventHub.publish(EventType.SLEEP_TIMER_UPDATED, tickData);
     }, 1000);
-    EventHub.publish(EventType.SLEEP_TIMER_UPDATED, { remainingMs: SleepTimer.remainingMs });
+    const startData: SleepTimerData = { remainingMs: SleepTimer.remainingMs };
+    EventHub.publish(EventType.SLEEP_TIMER_UPDATED, startData);
   }
 
   static stop(): void {

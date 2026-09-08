@@ -1,20 +1,55 @@
 // Port of: event/ 模块的 EventBus 事件；封装 @ohos.events.emitter 为类型化事件中心
 import emitter from '@ohos.events.emitter';
 
-export const EventType = {
-  FEED_LIST_UPDATE: 'FeedListUpdateEvent',
-  FEED_ITEM: 'FeedItemEvent',
-  QUEUE: 'QueueEvent',
-  PLAYER_STATUS: 'PlayerStatusEvent',
-  PLAYBACK_POSITION: 'PlaybackPositionEvent',
-  PLAYBACK_SERVICE: 'PlaybackServiceEvent',
-  EPISODE_DOWNLOAD: 'EpisodeDownloadEvent',
-  DOWNLOAD_LOG: 'DownloadLogEvent',
-  MESSAGE: 'MessageEvent',
-  PLAYER_ERROR: 'PlayerErrorEvent',
-  SPEED_CHANGED: 'SpeedChangedEvent',
-  SLEEP_TIMER_UPDATED: 'SleepTimerUpdatedEvent'
-} as const;
+export class EventType {
+  static readonly FEED_LIST_UPDATE: string = 'FeedListUpdateEvent';
+  static readonly FEED_ITEM: string = 'FeedItemEvent';
+  static readonly QUEUE: string = 'QueueEvent';
+  static readonly PLAYER_STATUS: string = 'PlayerStatusEvent';
+  static readonly PLAYBACK_POSITION: string = 'PlaybackPositionEvent';
+  static readonly PLAYBACK_SERVICE: string = 'PlaybackServiceEvent';
+  static readonly EPISODE_DOWNLOAD: string = 'EpisodeDownloadEvent';
+  static readonly DOWNLOAD_LOG: string = 'DownloadLogEvent';
+  static readonly MESSAGE: string = 'MessageEvent';
+  static readonly PLAYER_ERROR: string = 'PlayerErrorEvent';
+  static readonly SPEED_CHANGED: string = 'SpeedChangedEvent';
+  static readonly SLEEP_TIMER_UPDATED: string = 'SleepTimerUpdatedEvent';
+}
+
+export interface EpisodeDownloadData {
+  mediaId: number;
+  state: string;
+  received?: number;
+  total?: number;
+  filePath?: string;
+  code?: number;
+}
+
+export interface QueueUpdatedData {
+  items: number;
+}
+
+export interface PlayerStatusData {
+  status: string;
+}
+
+export interface PlaybackPositionData {
+  time: number;
+  duration: number;
+}
+
+export interface PlayerErrorData {
+  code: number;
+  message: string;
+}
+
+export interface SpeedChangedData {
+  speed: number;
+}
+
+export interface SleepTimerData {
+  remainingMs: number;
+}
 
 const EVENT_BASE: number = 10000;
 const activeEventIds: Map<string, number> = new Map<string, number>();
@@ -37,14 +72,18 @@ export class EventHub {
   static publish(type: string, data: object): void {
     const innerEvent: emitter.InnerEvent = {
       eventId: eventId(type),
-      priority: emitter.EventPriority.NORMAL
+      priority: emitter.EventPriority.LOW
     };
     emitter.emit(innerEvent, data);
   }
 
   static subscribe(type: string, callback: (data: object) => void): number {
     const id: number = eventId(type);
-    emitter.on(id, (eventData: emitter.EventData) => {
+    const innerEvent: emitter.InnerEvent = {
+      eventId: id,
+      priority: emitter.EventPriority.LOW
+    };
+    emitter.on(innerEvent, (eventData: emitter.EventData): void => {
       if (eventData !== undefined && eventData.data !== undefined) {
         callback(eventData.data as object);
       }

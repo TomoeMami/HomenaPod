@@ -6,6 +6,7 @@ import { FeedMedia, FeedMediaOptions } from '../model/FeedMedia';
 import { FeedState } from '../model/Enums';
 import { DateUtils } from '../utils/DateUtils';
 import { DurationUtils } from '../utils/DurationUtils';
+import { MimeTypeUtils } from '../utils/MimeTypeUtils';
 
 export class UnsupportedFeedException extends Error {
   constructor(message: string) {
@@ -19,6 +20,13 @@ export interface ParseResult {
   alternateUrls: string[];
 }
 
+const knownElements: Set<string> = new Set<string>([
+  'rss', 'feed', 'channel', 'item', 'entry', 'title', 'description', 'summary', 'subtitle',
+  'language', 'author', 'itunes:author', 'link', 'atom:link', 'image', 'url', 'logo',
+  'id', 'guid', 'pubdate', 'published', 'updated', 'enclosure', 'media:content',
+  'itunes:duration', 'duration', 'podcast:transcript', 'podcast:funding', 'itunes:image'
+]);
+
 export class FeedParser {
   static parseFeed(xmlText: string): ParseResult {
     const feed: Feed = new Feed(FeedParser.emptyFeedOptions());
@@ -26,9 +34,18 @@ export class FeedParser {
     let currentItem: FeedItem | undefined = undefined;
     let textBuffer: string = '';
     let inImage: boolean = false;
+    let unsupportedDepth: number = 0;
 
     const onStart = (tag: XmlTag): void => {
       const name: string = tag.name.toLowerCase();
+      if (unsupportedDepth > 0) {
+        unsupportedDepth++;
+        return;
+      }
+      if (!knownElements.has(name)) {
+        unsupportedDepth++;
+        return;
+      }
       if (name === 'rss') {
         feed.type = 'rss';
       } else if (name === 'feed') {
@@ -44,6 +61,7 @@ export class FeedParser {
           const lengthStr: string = tag.getAttribute('length');
           const type: string = tag.getAttribute('type');
           const size: number = lengthStr !== '' ? Number(lengthStr) : 0;
+          const mimeType: string = MimeTypeUtils.guessMimeType(url !== '' ? url : href, type);
           const mediaOptions: FeedMediaOptions = {
             id: 0,
             duration: 0,
@@ -52,7 +70,7 @@ export class FeedParser {
             downloadDate: 0,
             position: 0,
             size: size,
-            mimeType: type,
+            mimeType: mimeType,
             lastPlayedTimeHistory: 0,
             feedItemId: currentItem.id,
             playedDuration: 0,
@@ -60,6 +78,24 @@ export class FeedParser {
             lastPlayedTimeStatistics: 0
           };
           currentItem.media = new FeedMedia(mediaOptions);
+        }
+      } else if (name === 'podcast:transcript') {
+        if (currentItem !== undefined) {
+          const transcriptUrl: string = tag.getAttribute('url');
+          const transcriptType: string = tag.getAttribute('type');
+          if (currentItem.podcastIndexTranscriptUrl === '' && transcriptUrl !== '') {
+            currentItem.podcastIndexTranscriptUrl = transcriptUrl;
+          }
+          if (currentItem.podcastIndexTranscriptType === '' && transcriptType !== '') {
+            currentItem.podcastIndexTranscriptType = transcriptType;
+          }
+        }
+      } else if (name === 'podcast:funding') {
+        const fundingUrl: string = tag.getAttribute('url');
+        if (fundingUrl !== '') {
+          const payment: PaymentLink = { content: '', url: fundingUrl };
+          feed.paymentLinks.push(payment);
+          feed.paymentLink = fundingUrl;
         }
       } else if (name === 'link' || name === 'atom:link') {
         const rel: string = tag.getAttribute('rel');
@@ -74,12 +110,15 @@ export class FeedParser {
               feed.feedIdentifier = href;
             } else if (rel === 'alternate') {
               feed.link = href;
+            } else if (rel === '' && href !== '') {
+              feed.link = href;
             }
           }
         } else {
           if (rel === 'enclosure') {
             const type: string = tag.getAttribute('type');
             const lengthStr: string = tag.getAttribute('length');
+            const mimeType: string = MimeTypeUtils.guessMimeType(href, type);
             const mediaOptions: FeedMediaOptions = {
               id: 0,
               duration: 0,
@@ -88,7 +127,7 @@ export class FeedParser {
               downloadDate: 0,
               position: 0,
               size: lengthStr !== '' ? Number(lengthStr) : 0,
-              mimeType: type,
+              mimeType: mimeType,
               lastPlayedTimeHistory: 0,
               feedItemId: currentItem.id,
               playedDuration: 0,
@@ -97,6 +136,8 @@ export class FeedParser {
             };
             currentItem.media = new FeedMedia(mediaOptions);
           } else if (rel === 'alternate') {
+            currentItem.link = href;
+          } else if (rel === '' && href !== '') {
             currentItem.link = href;
           }
         }
@@ -110,6 +151,11 @@ export class FeedParser {
 
     const onEnd = (name: string): void => {
       const lower: string = name.toLowerCase();
+      if (unsupportedDepth > 0) {
+        unsupportedDepth--;
+        textBuffer = '';
+        return;
+      }
       const text: string = textBuffer.trim();
       if (currentItem !== undefined) {
         if (lower === 'title') {
@@ -126,10 +172,11 @@ export class FeedParser {
           if (currentItem.media !== undefined) {
             currentItem.media.duration = DurationUtils.parseToMillis(text);
           }
-        } else if (lower === 'item' || lower === 'entry') {
-          if (currentItem.media !== undefined) {
-            currentItem.media.duration = currentItem.media.duration;
+        } else if (lower === 'podcast:funding') {
+          if (feed.paymentLinks.length > 0) {
+            feed.paymentLinks[feed.paymentLinks.length - 1].content = text;
           }
+        } else if (lower === 'item' || lower === 'entry') {
           items.push(currentItem);
           currentItem = undefined;
         }
@@ -245,3 +292,4 @@ export class FeedParser {
     };
   }
 }
+

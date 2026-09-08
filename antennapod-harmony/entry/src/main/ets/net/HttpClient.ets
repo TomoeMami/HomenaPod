@@ -24,7 +24,7 @@ export class NetworkError extends Error {
 export interface HttpOptions {
   headers: Record<string, string>;
   timeoutMs: number;
-  method: string;
+  method: http.RequestMethod;
 }
 
 export interface HttpResponse {
@@ -38,25 +38,29 @@ const DEFAULT_USER_AGENT: string = 'AntennaPod/3.12.1 (HarmonyOS NEXT)';
 
 export class HttpClient {
   static async get(url: string, headers: Record<string, string> = {}): Promise<HttpResponse> {
-    return HttpClient.request(url, 'GET', headers);
+    return HttpClient.request(url, http.RequestMethod.GET, headers);
   }
 
   static async head(url: string, headers: Record<string, string> = {}): Promise<HttpResponse> {
-    return HttpClient.request(url, 'HEAD', headers);
+    return HttpClient.request(url, http.RequestMethod.HEAD, headers);
   }
 
   static async getBytes(url: string, headers: Record<string, string> = {}): Promise<ArrayBuffer> {
     const finalHeaders: Record<string, string> = {};
-    if (!headers.hasOwnProperty('User-Agent')) {
-      finalHeaders['User-Agent'] = DEFAULT_USER_AGENT;
-    }
+    let hasUserAgent: boolean = false;
     for (const key of Object.keys(headers)) {
       finalHeaders[key] = headers[key];
+      if (key === 'User-Agent') {
+        hasUserAgent = true;
+      }
+    }
+    if (!hasUserAgent) {
+      finalHeaders['User-Agent'] = DEFAULT_USER_AGENT;
     }
     const httpRequest: http.HttpRequest = http.createHttp();
     try {
       const options: http.HttpRequestOptions = {
-        method: 'GET',
+        method: http.RequestMethod.GET,
         header: finalHeaders,
         connectTimeout: DEFAULT_TIMEOUT,
         readTimeout: DEFAULT_TIMEOUT,
@@ -82,13 +86,17 @@ export class HttpClient {
     }
   }
 
-  static async request(url: string, method: string, headers: Record<string, string>): Promise<HttpResponse> {
+  static async request(url: string, method: http.RequestMethod, headers: Record<string, string>): Promise<HttpResponse> {
     const finalHeaders: Record<string, string> = {};
-    if (!headers.hasOwnProperty('User-Agent')) {
-      finalHeaders['User-Agent'] = DEFAULT_USER_AGENT;
-    }
+    let hasUserAgent: boolean = false;
     for (const key of Object.keys(headers)) {
       finalHeaders[key] = headers[key];
+      if (key === 'User-Agent') {
+        hasUserAgent = true;
+      }
+    }
+    if (!hasUserAgent) {
+      finalHeaders['User-Agent'] = DEFAULT_USER_AGENT;
     }
     const httpRequest: http.HttpRequest = http.createHttp();
     try {

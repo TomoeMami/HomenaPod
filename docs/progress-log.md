@@ -211,3 +211,14 @@
 - 工作区已初始化为 git repo，main 分支
 - 裸仓库：remote/antennapod-harmony.git、remote/harmony-project.git
 - Git daemon 运行于 9418，局域网可 clone
+## 第19轮执行记录（2026-09-08，DevEco 工具链就绪）
+- [x] 首次 DevEco 构建：修复 41 个 ArkTS 编译错误（untyped-obj-literals / as-const / EventPriority.NORMAL 缺失 / RequestMethod / hasOwnProperty / onAppear+position 属性冲突 / NotificationContent 字段 / XmlReader 回调接口）
+- [x] 单测链路打通：安装 @ohos/hypium 1.0.28、补齐 List.test.ets 门面；诊断出宿主 LocalTest 中 @ohos.xml 与 rawfile 均为 no-op 桩
+- [x] XmlReader 重写为纯 ArkTS 分词器（无平台依赖，宿主/真机行为一致）
+- [x] FeedParser 修复：knownElements 补 'feed'、podcast:funding / podcast:transcript 解析、未知元素子树忽略、link 无 rel 时取 href、mimeType 按 URL 扩展名推导
+- [x] Hypium 单测全绿：9 FeedParser + 5 Utils（BUILD SUCCESSFUL，0 Error）
+- [x] debug assembleHap BUILD OK（产物 entry/build/default/outputs/default/entry-default-unsigned.hap）
+- [ ] 真机 E2E：无设备/模拟器（device list 为空，无 emulator 实例）→ 待用户接入真机
+- [ ] 签名发布：未配置 signingConfigs（未登录/未执行 devecocli signature generate）
+- [x] 真机运行（2026-09-08）：无线调试连接 Mate 80 Pro（192.168.3.149:40725）；卸载旧包后安装成功并启动 EntryAbility；进程存活、截图确认订阅页正常渲染
+- [x] 签名：devecocli signature generate 生成签名并写入 build-profile.json5（SignHap 通过）

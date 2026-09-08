@@ -1,13 +1,26 @@
 // Hypium regression tests for FeedParser (T1.8). Fixtures are stored in rawfile/feed_test.
 import { describe, it, expect } from '@ohos/hypium';
-import { resourceManager } from '@kit.LocalizationKit';
+import { common } from '@kit.AbilityKit';
 import { util } from '@kit.ArkTS';
 import { FeedParser, ParseResult } from '../../main/ets/parser/FeedParser';
+import { FIXTURES } from '../fixtures/FeedFixtures';
 
 async function parseRaw(fileName: string): Promise<ParseResult> {
-  const data: Uint8Array = await resourceManager.getRawFileContent('feed_test/' + fileName);
-  const decoder: util.TextDecoder = util.TextDecoder.create();
-  const xml: string = decoder.decodeToString(data);
+  let xml: string = '';
+  try {
+    const context: common.Context = getContext();
+    const data: Uint8Array = await context.resourceManager.getRawFileContent('feed_test/' + fileName);
+    if (data.byteLength > 0) {
+      const decoder: util.TextDecoder = util.TextDecoder.create();
+      xml = decoder.decodeToString(data);
+    }
+  } catch (error) {
+    xml = '';
+  }
+  if (xml === '') {
+    const embedded: string | undefined = FIXTURES.get(fileName);
+    xml = embedded === undefined ? '' : embedded;
+  }
   return FeedParser.parseFeed(xml);
 }
 

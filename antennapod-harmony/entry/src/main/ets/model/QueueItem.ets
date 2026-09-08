@@ -1,4 +1,16 @@
 // Port of: storage/database Queue table
+export class QueueItemValues {
+  id: number = 0;
+  feeditem: number = 0;
+  feed: number = 0;
+
+  constructor(id: number, feeditem: number, feed: number) {
+    this.id = id;
+    this.feeditem = feeditem;
+    this.feed = feed;
+  }
+}
+
 export class QueueItem {
   id: number = 0;
   feedItemId: number = 0;
@@ -10,7 +22,7 @@ export class QueueItem {
     this.feedId = feedId;
   }
 
-  toValues(): Record<string, number> {
-    return { id: this.id, feeditem: this.feedItemId, feed: this.feedId };
+  toValues(): QueueItemValues {
+    return new QueueItemValues(this.id, this.feedItemId, this.feedId);
   }
 }

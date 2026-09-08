@@ -9,7 +9,7 @@ import { Chapter } from '../model/Chapter';
 struct PlayerPage {
   @State title: string = '';
   @State status: string = 'IDLE';
-  @State position: number = 0;
+  @State playPosition: number = 0;
   @State duration: number = 0;
   @State chapters: Chapter[] = [];
   private timerId: number = -1;
@@ -19,9 +19,9 @@ struct PlayerPage {
       Text($r('app.string.player_title')).fontSize(22).fontWeight(FontWeight.Bold)
       Text(this.title === '' ? $r('app.string.player_no_playback') : this.title).fontSize(18)
       Text('Status: ' + this.status)
-      Text(Math.floor(this.position / 1000) + ' / ' + Math.floor(this.duration / 1000) + ' s')
+      Text(Math.floor(this.playPosition / 1000) + ' / ' + Math.floor(this.duration / 1000) + ' s')
       Slider({
-        value: this.position,
+        value: this.playPosition,
         min: 0,
         max: this.duration > 0 ? this.duration : 1
       })
@@ -69,7 +69,7 @@ struct PlayerPage {
     .justifyContent(FlexAlign.Center)
   }
 
-  onAppear(): void {
+  aboutToAppear(): void {
     this.refresh();
     if (this.timerId < 0) {
       this.timerId = setInterval(() => {
@@ -78,7 +78,7 @@ struct PlayerPage {
     }
   }
 
-  onDisappear(): void {
+  aboutToDisappear(): void {
     if (this.timerId >= 0) {
       clearInterval(this.timerId);
       this.timerId = -1;
@@ -100,7 +100,7 @@ struct PlayerPage {
       }
     }
     this.status = PlayerManager.getStatus();
-    this.position = PlayerManager.getCurrentTime();
+    this.playPosition = PlayerManager.getCurrentTime();
     this.duration = PlayerManager.getDuration();
   }
 }

@@ -63,7 +63,7 @@ struct Index {
     .height('100%')
   }
 
-  onAppear(): void {
+  aboutToAppear(): void {
     EventHub.subscribe(EventType.PLAYER_STATUS, (data: object) => {
       const record = data as Record<string, string>;
       const status: string | undefined = record['status'];

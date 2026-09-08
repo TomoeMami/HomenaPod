@@ -43,4 +43,46 @@ export class MimeTypeUtils {
     }
     return '.mp3';
   }
+
+  static guessMimeType(url: string, declared: string): string {
+    if (declared !== '') {
+      return declared;
+    }
+    const lower: string = url.toLowerCase();
+    const queryIndex: number = lower.indexOf('?');
+    const clean: string = queryIndex >= 0 ? lower.substring(0, queryIndex) : lower;
+    const dotIndex: number = clean.lastIndexOf('.');
+    if (dotIndex < 0) {
+      return declared;
+    }
+    const ext: string = clean.substring(dotIndex + 1);
+    if (ext === 'mp3') {
+      return 'audio/mpeg';
+    }
+    if (ext === 'mp4' || ext === 'm4v') {
+      return 'video/mp4';
+    }
+    if (ext === 'm4a' || ext === 'm4b' || ext === 'mp4a') {
+      return 'audio/mp4';
+    }
+    if (ext === 'ogg' || ext === 'oga') {
+      return 'audio/ogg';
+    }
+    if (ext === 'wav') {
+      return 'audio/wav';
+    }
+    if (ext === 'aac' || ext === 'm4r') {
+      return 'audio/aac';
+    }
+    if (ext === 'flac') {
+      return 'audio/flac';
+    }
+    if (ext === 'opus') {
+      return 'audio/opus';
+    }
+    if (ext === 'webm') {
+      return 'audio/webm';
+    }
+    return declared;
+  }
 }

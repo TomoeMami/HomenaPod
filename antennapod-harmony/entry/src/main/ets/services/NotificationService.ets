@@ -13,7 +13,7 @@ export class NotificationService {
     const request: notificationManager.NotificationRequest = {
       id: NOTIFICATION_ID,
       content: {
-        notificationType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
+        notificationContentType: notificationManager.ContentType.NOTIFICATION_CONTENT_BASIC_TEXT,
         normal: {
           title: 'AntennaPod',
           text: count + ' 个新单集'

@@ -86,7 +86,7 @@ export struct SubscriptionsPage {
     .height('100%')
   }
 
-  onAppear(): void {
+  aboutToAppear(): void {
     this.loadFeeds();
   }
 

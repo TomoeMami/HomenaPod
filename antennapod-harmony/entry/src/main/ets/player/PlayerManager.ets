@@ -2,7 +2,7 @@
 import { media } from '@kit.MediaKit';
 import { Playable } from '../model/Playable';
 import { Logger } from '../utils/Logger';
-import { EventHub, EventType } from '../events/EventHub';
+import { EventHub, EventType, PlaybackPositionData, PlayerErrorData, SpeedChangedData, PlayerStatusData } from '../events/EventHub';
 
 const TAG: string = 'PlayerManager';
 
@@ -27,12 +27,14 @@ export class PlayerManager {
       PlayerManager.handleStateChange(state, reason);
     };
   private static boundTimeUpdate: (time: number) => void = (time: number): void => {
-    EventHub.publish(EventType.PLAYBACK_POSITION, { time: time, duration: PlayerManager.getDuration() });
+    const positionData: PlaybackPositionData = { time: time, duration: PlayerManager.getDuration() };
+    EventHub.publish(EventType.PLAYBACK_POSITION, positionData);
   };
   private static boundError: (error: Error) => void = (error: Error): void => {
     Logger.error(TAG, 'AVPlayer error', error);
     PlayerManager.status = PlayerStatus.ERROR;
-    EventHub.publish(EventType.PLAYER_ERROR, { code: 0, message: error.message });
+    const errorData: PlayerErrorData = { code: 0, message: error.message };
+    EventHub.publish(EventType.PLAYER_ERROR, errorData);
   };
 
   static async load(playable: Playable, startPosition: number, autoplay: boolean): Promise<void> {
@@ -45,6 +47,10 @@ export class PlayerManager {
     player.on('timeUpdate', PlayerManager.boundTimeUpdate);
     player.on('error', PlayerManager.boundError);
     player.url = playable.getSourceUrl();
+    const initialized: boolean = await PlayerManager.waitForState(player, 'initialized', 30000);
+    if (!initialized) {
+      throw new Error('AVPlayer url 初始化超时: ' + playable.getSourceUrl());
+    }
     PlayerManager.status = PlayerStatus.PREPARING;
     await player.prepare();
     PlayerManager.status = PlayerStatus.PREPARED;
@@ -54,6 +60,41 @@ export class PlayerManager {
     if (autoplay) {
       PlayerManager.play();
     }
+  }
+
+  private static waitForState(player: media.AVPlayer, target: media.AVPlayerState, timeoutMs: number): Promise<boolean> {
+    if (player.state === target) {
+      return new Promise<boolean>((resolve) => resolve(true));
+    }
+    return new Promise<boolean>((resolve) => {
+      let settled: boolean = false;
+      let timerId: number = -1;
+      const handler = (state: media.AVPlayerState, reason: media.StateChangeReason): void => {
+        if (state === target) {
+          if (!settled) {
+            settled = true;
+            player.off('stateChange', handler);
+            clearTimeout(timerId);
+            resolve(true);
+          }
+        } else if (state === 'error') {
+          if (!settled) {
+            settled = true;
+            player.off('stateChange', handler);
+            clearTimeout(timerId);
+            resolve(false);
+          }
+        }
+      };
+      player.on('stateChange', handler);
+      timerId = setTimeout(() => {
+        if (!settled) {
+          settled = true;
+          player.off('stateChange', handler);
+          resolve(false);
+        }
+      }, timeoutMs);
+    });
   }
 
   static async play(): Promise<void> {
@@ -106,7 +147,8 @@ export class PlayerManager {
     }
     player.setSpeed(playbackSpeed);
     PlayerManager.speed = speed;
-    EventHub.publish(EventType.SPEED_CHANGED, { speed: speed });
+    const speedData: SpeedChangedData = { speed: speed };
+    EventHub.publish(EventType.SPEED_CHANGED, speedData);
   }
 
   static getCurrentTime(): number {
@@ -148,7 +190,8 @@ export class PlayerManager {
     }
     PlayerManager.player = undefined;
     PlayerManager.status = PlayerStatus.IDLE;
-    EventHub.publish(EventType.PLAYER_STATUS, { status: PlayerManager.status });
+    const idleStatus: PlayerStatusData = { status: PlayerManager.status };
+    EventHub.publish(EventType.PLAYER_STATUS, idleStatus);
   }
 
   private static handleStateChange(state: media.AVPlayerState, reason: media.StateChangeReason): void {
@@ -166,6 +209,7 @@ export class PlayerManager {
     } else if (state === 'error') {
       PlayerManager.status = PlayerStatus.ERROR;
     }
-    EventHub.publish(EventType.PLAYER_STATUS, { status: PlayerManager.status });
+    const statusData: PlayerStatusData = { status: PlayerManager.status };
+    EventHub.publish(EventType.PLAYER_STATUS, statusData);
   }
 }

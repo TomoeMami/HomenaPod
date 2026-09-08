@@ -5,7 +5,7 @@ import { Playable } from '../model/Playable';
 import { QueueRepository } from '../db/repositories/QueueRepository';
 import { QueueItem } from '../model/QueueItem';
 import { EpisodeRepository } from '../db/repositories/EpisodeRepository';
-import { EventHub, EventType } from '../events/EventHub';
+import { EventHub, EventType, QueueUpdatedData } from '../events/EventHub';
 import { PlayerManager } from './PlayerManager';
 import { Logger } from '../utils/Logger';
 
@@ -24,7 +24,8 @@ export class QueueEngine {
       }
     }
     QueueEngine.items = loaded;
-    EventHub.publish(EventType.QUEUE, { items: loaded.length });
+    const loadData: QueueUpdatedData = { items: loaded.length };
+    EventHub.publish(EventType.QUEUE, loadData);
   }
 
   static getItems(): FeedItem[] {
@@ -38,19 +39,22 @@ export class QueueEngine {
     }
     QueueEngine.items.push(item);
     await QueueRepository.add(item.id, item.feedId);
-    EventHub.publish(EventType.QUEUE, { items: QueueEngine.items.length });
+    const addData: QueueUpdatedData = { items: QueueEngine.items.length };
+    EventHub.publish(EventType.QUEUE, addData);
   }
 
   static async remove(itemId: number): Promise<void> {
     QueueEngine.items = QueueEngine.items.filter((item: FeedItem) => item.id !== itemId);
     await QueueRepository.remove(itemId);
-    EventHub.publish(EventType.QUEUE, { items: QueueEngine.items.length });
+    const removeData: QueueUpdatedData = { items: QueueEngine.items.length };
+    EventHub.publish(EventType.QUEUE, removeData);
   }
 
   static async clear(): Promise<void> {
     QueueEngine.items = [];
     await QueueRepository.clear();
-    EventHub.publish(EventType.QUEUE, { items: 0 });
+    const clearData: QueueUpdatedData = { items: 0 };
+    EventHub.publish(EventType.QUEUE, clearData);
   }
 
   static async move(itemId: number, targetIndex: number): Promise<void> {
@@ -62,7 +66,8 @@ export class QueueEngine {
     QueueEngine.items.splice(currentIndex, 1);
     QueueEngine.items.splice(targetIndex, 0, moved);
     await QueueRepository.move(itemId, targetIndex);
-    EventHub.publish(EventType.QUEUE, { items: QueueEngine.items.length });
+    const moveData: QueueUpdatedData = { items: QueueEngine.items.length };
+    EventHub.publish(EventType.QUEUE, moveData);
   }
 
   static nextItem(): FeedItem | undefined {

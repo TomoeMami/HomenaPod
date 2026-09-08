@@ -47,7 +47,7 @@ export struct DownloadsPage {
     .height('100%')
   }
 
-  onAppear(): void {
+  aboutToAppear(): void {
     this.load();
   }
 

@@ -61,7 +61,7 @@ export struct QueuePage {
     .height('100%')
   }
 
-  onAppear(): void {
+  aboutToAppear(): void {
     this.load();
   }
 
