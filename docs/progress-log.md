@@ -206,3 +206,8 @@
 - [x] 新增 scripts/build.sh（工具链就绪后标准构建入口；缺失时提示）
 - [x] 新增 docs/HANDOFF.md（交接文档：构建/测试/验收/已知关注点）
 - [x] README 更新
+
+## Git 仓库交付（2026-09-08）
+- 工作区已初始化为 git repo，main 分支
+- 裸仓库：remote/antennapod-harmony.git、remote/harmony-project.git
+- Git daemon 运行于 9418，局域网可 clone

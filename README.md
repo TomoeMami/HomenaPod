@@ -30,3 +30,19 @@
 - 播放：AVPlayer + AVSession + AUDIO_PLAYBACK 长时任务
 - 存储：relationalStore（复用 AntennaPod 表结构）+ preferences
 - 执行：单执行者顺序执行任务清单
+
+## 局域网 Git 克隆
+
+本机 Git daemon 已启动（IP `192.168.3.193`，端口 `9418`）：
+
+```bash
+# 完整工作区（含计划/文档/工程）
+git clone git://192.168.3.193/antennapod-harmony.git
+cd antennapod-harmony/antennapod-harmony
+
+# 纯 Harmony 工程（DevEco 直接打开）
+git clone git://192.168.3.193/harmony-project.git
+cd harmony-project
+```
+
+详细说明见 `docs/HANDOFF.md`。
