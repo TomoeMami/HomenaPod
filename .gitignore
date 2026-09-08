@@ -1,0 +1,21 @@
+# 上游参考源码（不作为本仓库的一部分）
+/antenna-repo/
+
+# Harmony/DevEco 构建产物与配置
+node_modules/
+oh_modules/
+.hvigor/
+**/build/
+**/.test/
+/.appanalyzer/
+.idea/
+local.properties
+*.hap
+*.hsp
+*.har
+
+# 系统/编辑器
+.DS_Store
+*.swp
+*.tmp
+*.log

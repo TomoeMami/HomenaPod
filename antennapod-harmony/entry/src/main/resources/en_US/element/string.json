@@ -1,0 +1,268 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "AntennaPod entry module"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "AntennaPod main ability"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "AntennaPod"
+    },
+    {
+      "name": "skeleton_hint",
+      "value": "Porting in progress"
+    },
+    {
+      "name": "tab_subscriptions",
+      "value": "Subscriptions"
+    },
+    {
+      "name": "tab_queue",
+      "value": "Queue"
+    },
+    {
+      "name": "tab_downloads",
+      "value": "Downloads"
+    },
+    {
+      "name": "tab_settings",
+      "value": "Settings"
+    },
+    {
+      "name": "placeholder_subscriptions",
+      "value": "No subscriptions yet"
+    },
+    {
+      "name": "placeholder_queue",
+      "value": "Queue is empty"
+    },
+    {
+      "name": "placeholder_downloads",
+      "value": "No downloads"
+    },
+    {
+      "name": "placeholder_settings",
+      "value": "Settings"
+    },
+    {
+      "name": "add_feed",
+      "value": "Add feed"
+    },
+    {
+      "name": "loading",
+      "value": "Loading..."
+    },
+    {
+      "name": "subscribe",
+      "value": "Subscribe"
+    },
+    {
+      "name": "player_title",
+      "value": "Player"
+    },
+    {
+      "name": "setting_theme",
+      "value": "Dark theme"
+    },
+    {
+      "name": "setting_stream_first",
+      "value": "Stream before download"
+    },
+    {
+      "name": "setting_speed",
+      "value": "Default speed"
+    },
+    {
+      "name": "refresh_all",
+      "value": "Refresh"
+    },
+    {
+      "name": "discover_title",
+      "value": "Discover"
+    },
+    {
+      "name": "discover_hint",
+      "value": "Search podcasts"
+    },
+    {
+      "name": "discover_search",
+      "value": "Search"
+    },
+    {
+      "name": "discover_subscribe",
+      "value": "Subscribe"
+    },
+    {
+      "name": "mini_player",
+      "value": "Mini Player"
+    },
+    {
+      "name": "player_play",
+      "value": "Play"
+    },
+    {
+      "name": "player_pause",
+      "value": "Pause"
+    },
+    {
+      "name": "player_speed_15",
+      "value": "1.5x"
+    },
+    {
+      "name": "player_seek_30",
+      "value": "Seek +30s"
+    },
+    {
+      "name": "player_sleep_15",
+      "value": "Sleep 15m"
+    },
+    {
+      "name": "player_smoke_title",
+      "value": "Player Smoke Page"
+    },
+    {
+      "name": "player_smoke_load_feed",
+      "value": "Load Feed URL (smoke parser)"
+    },
+    {
+      "name": "player_no_playback",
+      "value": "No playback"
+    },
+    {
+      "name": "player_status",
+      "value": "Status"
+    },
+    {
+      "name": "filter_all",
+      "value": "All"
+    },
+    {
+      "name": "filter_unplayed",
+      "value": "Unplayed"
+    },
+    {
+      "name": "filter_downloaded",
+      "value": "Downloaded"
+    },
+    {
+      "name": "episode_downloaded",
+      "value": "Downloaded"
+    },
+    {
+      "name": "episode_online",
+      "value": "Online"
+    },
+    {
+      "name": "add_url_empty",
+      "value": "URL is empty"
+    },
+    {
+      "name": "subscribe_success",
+      "value": "Subscribed: "
+    },
+    {
+      "name": "subscribe_failed",
+      "value": "Subscribe failed: "
+    },
+    {
+      "name": "search_failed",
+      "value": "Search failed: "
+    },
+    {
+      "name": "download_ok",
+      "value": "OK"
+    },
+    {
+      "name": "download_fail",
+      "value": "FAIL"
+    },
+    {
+      "name": "opml_title",
+      "value": "OPML Import/Export"
+    },
+    {
+      "name": "opml_import",
+      "value": "Import OPML"
+    },
+    {
+      "name": "opml_export",
+      "value": "Export OPML"
+    },
+    {
+      "name": "opml_imported",
+      "value": "Imported: "
+    },
+    {
+      "name": "opml_exported",
+      "value": "Exported: "
+    },
+    {
+      "name": "favorites_title",
+      "value": "Favorites"
+    },
+    {
+      "name": "favorites_empty",
+      "value": "No favorites"
+    },
+    {
+      "name": "favorites_button",
+      "value": "Favorites"
+    },
+    {
+      "name": "setting_schedule_refresh",
+      "value": "Scheduled refresh"
+    },
+    {
+      "name": "setting_schedule_apply",
+      "value": "Enable"
+    },
+    {
+      "name": "setting_opml",
+      "value": "OPML import/export"
+    },
+    {
+      "name": "player_chapters",
+      "value": "Chapters"
+    },
+    {
+      "name": "setting_clear_cache",
+      "value": "Clear image cache"
+    },
+    {
+      "name": "setting_clear_cache_button",
+      "value": "Clear"
+    },
+    {
+      "name": "cache_cleared",
+      "value": "Cache cleared"
+    },
+    {
+      "name": "discover_empty",
+      "value": "No results"
+    },
+    {
+      "name": "setting_interval_hint",
+      "value": "minutes"
+    },
+    {
+      "name": "schedule_set",
+      "value": "Scheduled refresh: "
+    },
+    {
+      "name": "schedule_invalid",
+      "value": "Interval must be >= 120 minutes"
+    },
+    {
+      "name": "schedule_cancelled",
+      "value": "Scheduled refresh cancelled"
+    },
+    {
+      "name": "setting_schedule_cancel",
+      "value": "Cancel"
+    }
+  ]
+}

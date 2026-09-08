@@ -1,0 +1,268 @@
+{
+  "string": [
+    {
+      "name": "module_desc",
+      "value": "AntennaPod 入口模块"
+    },
+    {
+      "name": "EntryAbility_desc",
+      "value": "AntennaPod 主程序"
+    },
+    {
+      "name": "EntryAbility_label",
+      "value": "AntennaPod"
+    },
+    {
+      "name": "skeleton_hint",
+      "value": "移植进行中"
+    },
+    {
+      "name": "tab_subscriptions",
+      "value": "订阅"
+    },
+    {
+      "name": "tab_queue",
+      "value": "队列"
+    },
+    {
+      "name": "tab_downloads",
+      "value": "下载"
+    },
+    {
+      "name": "tab_settings",
+      "value": "设置"
+    },
+    {
+      "name": "placeholder_subscriptions",
+      "value": "暂无订阅"
+    },
+    {
+      "name": "placeholder_queue",
+      "value": "队列为空"
+    },
+    {
+      "name": "placeholder_downloads",
+      "value": "暂无下载"
+    },
+    {
+      "name": "placeholder_settings",
+      "value": "设置"
+    },
+    {
+      "name": "add_feed",
+      "value": "添加订阅"
+    },
+    {
+      "name": "loading",
+      "value": "加载中…"
+    },
+    {
+      "name": "subscribe",
+      "value": "订阅"
+    },
+    {
+      "name": "player_title",
+      "value": "播放"
+    },
+    {
+      "name": "setting_theme",
+      "value": "深色主题"
+    },
+    {
+      "name": "setting_stream_first",
+      "value": "在线优先"
+    },
+    {
+      "name": "setting_speed",
+      "value": "默认倍速"
+    },
+    {
+      "name": "refresh_all",
+      "value": "刷新"
+    },
+    {
+      "name": "discover_title",
+      "value": "发现"
+    },
+    {
+      "name": "discover_hint",
+      "value": "搜索播客"
+    },
+    {
+      "name": "discover_search",
+      "value": "搜索"
+    },
+    {
+      "name": "discover_subscribe",
+      "value": "订阅"
+    },
+    {
+      "name": "mini_player",
+      "value": "迷你播放"
+    },
+    {
+      "name": "player_play",
+      "value": "播放"
+    },
+    {
+      "name": "player_pause",
+      "value": "暂停"
+    },
+    {
+      "name": "player_speed_15",
+      "value": "1.5倍速"
+    },
+    {
+      "name": "player_seek_30",
+      "value": "快进30秒"
+    },
+    {
+      "name": "player_sleep_15",
+      "value": "睡眠15分钟"
+    },
+    {
+      "name": "player_smoke_title",
+      "value": "播放器冒烟测试页"
+    },
+    {
+      "name": "player_smoke_load_feed",
+      "value": "加载Feed URL（解析测试）"
+    },
+    {
+      "name": "player_no_playback",
+      "value": "暂无播放"
+    },
+    {
+      "name": "player_status",
+      "value": "状态"
+    },
+    {
+      "name": "filter_all",
+      "value": "全部"
+    },
+    {
+      "name": "filter_unplayed",
+      "value": "未播放"
+    },
+    {
+      "name": "filter_downloaded",
+      "value": "已下载"
+    },
+    {
+      "name": "episode_downloaded",
+      "value": "已下载"
+    },
+    {
+      "name": "episode_online",
+      "value": "在线"
+    },
+    {
+      "name": "add_url_empty",
+      "value": "URL 不能为空"
+    },
+    {
+      "name": "subscribe_success",
+      "value": "订阅成功："
+    },
+    {
+      "name": "subscribe_failed",
+      "value": "订阅失败："
+    },
+    {
+      "name": "search_failed",
+      "value": "搜索失败："
+    },
+    {
+      "name": "download_ok",
+      "value": "成功"
+    },
+    {
+      "name": "download_fail",
+      "value": "失败"
+    },
+    {
+      "name": "opml_title",
+      "value": "OPML 导入/导出"
+    },
+    {
+      "name": "opml_import",
+      "value": "导入 OPML"
+    },
+    {
+      "name": "opml_export",
+      "value": "导出 OPML"
+    },
+    {
+      "name": "opml_imported",
+      "value": "已导入订阅："
+    },
+    {
+      "name": "opml_exported",
+      "value": "已导出订阅："
+    },
+    {
+      "name": "favorites_title",
+      "value": "收藏"
+    },
+    {
+      "name": "favorites_empty",
+      "value": "暂无收藏"
+    },
+    {
+      "name": "favorites_button",
+      "value": "收藏"
+    },
+    {
+      "name": "setting_schedule_refresh",
+      "value": "定时刷新"
+    },
+    {
+      "name": "setting_schedule_apply",
+      "value": "启用"
+    },
+    {
+      "name": "setting_opml",
+      "value": "OPML 导入/导出"
+    },
+    {
+      "name": "player_chapters",
+      "value": "章节"
+    },
+    {
+      "name": "setting_clear_cache",
+      "value": "清理图片缓存"
+    },
+    {
+      "name": "setting_clear_cache_button",
+      "value": "清理"
+    },
+    {
+      "name": "cache_cleared",
+      "value": "缓存已清理"
+    },
+    {
+      "name": "discover_empty",
+      "value": "未找到结果"
+    },
+    {
+      "name": "setting_interval_hint",
+      "value": "分钟"
+    },
+    {
+      "name": "schedule_set",
+      "value": "已设置定时刷新："
+    },
+    {
+      "name": "schedule_invalid",
+      "value": "间隔需不小于120分钟"
+    },
+    {
+      "name": "schedule_cancelled",
+      "value": "已取消定时刷新"
+    },
+    {
+      "name": "setting_schedule_cancel",
+      "value": "取消"
+    }
+  ]
+}

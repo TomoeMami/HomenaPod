@@ -1,0 +1,12 @@
+{
+  "src": [
+    "pages/Index",
+    "pages/PlayerSmokePage",
+    "pages/AddFeedPage",
+    "pages/FeedDetailPage",
+    "pages/PlayerPage",
+    "pages/SearchPage",
+    "pages/OpmlPage",
+    "pages/FavoritesPage"
+  ]
+}

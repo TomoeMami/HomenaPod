@@ -1,0 +1,6 @@
+{"color": [
+    {"name": "start_window_background", "value": "#000000"},
+    {"name": "text_secondary", "value": "#99FFFFFF"},
+    {"name": "surface", "value": "#1A1A1A"},
+    {"name": "accent", "value": "#4C8DFF"}
+]}

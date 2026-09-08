@@ -1,0 +1,46 @@
+// Port of: parser/feed/util/MimeTypeUtils.java + TypeGetter.java
+import { MediaType } from '../model/Enums';
+
+export class MimeTypeUtils {
+  static mediaTypeFromMime(mimeType: string): MediaType {
+    if (mimeType === null || mimeType === undefined) {
+      return MediaType.UNKNOWN;
+    }
+    if (mimeType.indexOf('video') >= 0) {
+      return MediaType.VIDEO;
+    }
+    if (mimeType.indexOf('audio') >= 0) {
+      return MediaType.AUDIO;
+    }
+    return MediaType.UNKNOWN;
+  }
+
+  static guessExtension(url: string, mimeType: string): string {
+    if (mimeType !== '') {
+      if (mimeType.indexOf('mp4') >= 0 || mimeType.indexOf('m4a') >= 0 || mimeType.indexOf('mp4a') >= 0) {
+        return '.m4a';
+      }
+      if (mimeType.indexOf('mp3') >= 0) {
+        return '.mp3';
+      }
+      if (mimeType.indexOf('ogg') >= 0) {
+        return '.ogg';
+      }
+      if (mimeType.indexOf('wav') >= 0) {
+        return '.wav';
+      }
+      if (mimeType.indexOf('mpeg') >= 0) {
+        return '.mp3';
+      }
+      if (mimeType.indexOf('aac') >= 0) {
+        return '.aac';
+      }
+    }
+    const lower: string = url.toLowerCase();
+    const dotIndex: number = lower.lastIndexOf('.');
+    if (dotIndex >= 0 && lower.length - dotIndex <= 6) {
+      return lower.substring(dotIndex);
+    }
+    return '.mp3';
+  }
+}
