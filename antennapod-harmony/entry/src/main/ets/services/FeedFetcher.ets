@@ -2,10 +2,19 @@
 import { HttpClient, HttpResponse, NetworkError } from '../net/HttpClient';
 import { FeedParser, ParseResult, UnsupportedFeedException } from '../parser/FeedParser';
 import { FeedSanitizer } from '../parser/FeedSanitizer';
+import { Base64Utils } from '../utils/Base64Utils';
 
 export class FeedFetcher {
-  static async fetchFeed(url: string): Promise<ParseResult> {
-    const response: HttpResponse = await HttpClient.get(url);
+  /**
+   * 拉取并解析订阅源；username/password 非空时附加 HTTP Basic 认证头（私有 Feed）。
+   * 认证头只随该订阅自己的 URL 发送，不会外泄到其他请求。
+   */
+  static async fetchFeed(url: string, username: string = '', password: string = ''): Promise<ParseResult> {
+    const headers: Record<string, string> = {};
+    if (username !== '' || password !== '') {
+      headers['Authorization'] = Base64Utils.basicAuth(username, password);
+    }
+    const response: HttpResponse = await HttpClient.get(url, headers);
     if (response.status >= 300) {
       throw new NetworkError(0, 'HTTP ' + response.status, response.status);
     }

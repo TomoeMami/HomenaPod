@@ -24,6 +24,7 @@ const knownElements: Set<string> = new Set<string>([
   'rss', 'feed', 'channel', 'item', 'entry', 'title', 'description', 'summary', 'subtitle',
   'language', 'author', 'itunes:author', 'link', 'atom:link', 'image', 'url', 'logo',
   'id', 'guid', 'pubdate', 'published', 'updated', 'enclosure', 'media:content',
+  'media:thumbnail', 'media:group',
   'itunes:duration', 'duration', 'podcast:transcript', 'podcast:funding', 'itunes:image'
 ]);
 
@@ -54,30 +55,31 @@ export class FeedParser {
         currentItem = new FeedItem(FeedParser.emptyFeedItemOptions());
       } else if (name === 'image') {
         inImage = true;
-      } else if (name === 'enclosure' || name === 'media:content') {
+      } else if (name === 'enclosure') {
         if (currentItem !== undefined) {
           const url: string = tag.getAttribute('url');
           const href: string = tag.getAttribute('href');
-          const lengthStr: string = tag.getAttribute('length');
-          const type: string = tag.getAttribute('type');
-          const size: number = lengthStr !== '' ? Number(lengthStr) : 0;
-          const mimeType: string = MimeTypeUtils.guessMimeType(url !== '' ? url : href, type);
-          const mediaOptions: FeedMediaOptions = {
-            id: 0,
-            duration: 0,
-            fileUrl: '',
-            downloadUrl: url !== '' ? url : href,
-            downloadDate: 0,
-            position: 0,
-            size: size,
-            mimeType: mimeType,
-            lastPlayedTimeHistory: 0,
-            feedItemId: currentItem.id,
-            playedDuration: 0,
-            hasEmbeddedPicture: false,
-            lastPlayedTimeStatistics: 0
-          };
-          currentItem.media = new FeedMedia(mediaOptions);
+          FeedParser.applyEnclosure(currentItem, url !== '' ? url : href,
+            tag.getAttribute('length'), tag.getAttribute('type'));
+        }
+      } else if (name === 'media:content') {
+        // media:content 既可能是音视频（等价 enclosure），也可能是封面（medium="image" / type="image/*"）。
+        // 旧实现一律当 enclosure，会把封面写成单集的音频地址。
+        const contentUrl: string = tag.getAttribute('url') !== '' ? tag.getAttribute('url') : tag.getAttribute('href');
+        const contentType: string = tag.getAttribute('type').toLowerCase();
+        const contentMedium: string = tag.getAttribute('medium').toLowerCase();
+        if (contentMedium === 'image' || contentType.startsWith('image/')) {
+          if (contentUrl !== '') {
+            FeedParser.applyImage(feed, currentItem, contentUrl);
+          }
+        } else if (currentItem !== undefined) {
+          FeedParser.applyEnclosure(currentItem, contentUrl,
+            tag.getAttribute('length'), tag.getAttribute('type'));
+        }
+      } else if (name === 'media:thumbnail') {
+        const thumbUrl: string = tag.getAttribute('url');
+        if (thumbUrl !== '') {
+          FeedParser.applyImage(feed, currentItem, thumbUrl);
         }
       } else if (name === 'podcast:transcript') {
         if (currentItem !== undefined) {
@@ -101,7 +103,11 @@ export class FeedParser {
         const rel: string = tag.getAttribute('rel');
         const href: string = tag.getAttribute('href');
         if (currentItem === undefined) {
-          if (rel === 'payment' || href !== '') {
+          if (rel === 'next' && href !== '') {
+            // RFC 5005 / Atom 分页：rel="next" 指向下一页
+            feed.isPaged = true;
+            feed.nextPageLink = href;
+          } else if (rel === 'payment' || href !== '') {
             if (rel === 'payment') {
               feed.paymentLink = href;
               const payment: PaymentLink = { content: '', url: href };
@@ -142,9 +148,12 @@ export class FeedParser {
           }
         }
       } else if (name === 'itunes:image') {
+        // 关键：item 内的 itunes:image 是「单集封面」，不能写成 Feed.imageUrl——
+        // 旧实现无条件覆盖 feed.imageUrl，导致播客封面变成最后一集的封面，
+        // 且单集永远拿不到自己的封面。
         const href: string = tag.getAttribute('href');
         if (href !== '') {
-          feed.imageUrl = href;
+          FeedParser.applyImage(feed, currentItem, href);
         }
       }
     };
@@ -168,6 +177,10 @@ export class FeedParser {
           currentItem.pubDate = DateUtils.parseToEpochMillis(text);
         } else if (lower === 'description' || lower === 'summary' || lower === 'subtitle') {
           currentItem.description = text;
+        } else if (lower === 'url' && inImage) {
+          if (text !== '') {
+            currentItem.imageUrl = text;
+          }
         } else if (lower === 'itunes:duration' || lower === 'duration') {
           if (currentItem.media !== undefined) {
             currentItem.media.duration = DurationUtils.parseToMillis(text);
@@ -192,9 +205,13 @@ export class FeedParser {
         } else if (lower === 'author' || lower === 'itunes:author') {
           feed.author = text;
         } else if (lower === 'url' && inImage) {
-          feed.imageUrl = text;
+          if (text !== '') {
+            feed.imageUrl = text;
+          }
         } else if (lower === 'logo') {
-          feed.imageUrl = text;
+          if (text !== '') {
+            feed.imageUrl = text;
+          }
         } else if (lower === 'id') {
           feed.feedIdentifier = text;
         }
@@ -219,6 +236,7 @@ export class FeedParser {
     });
 
     feed.items = items;
+    // 单集没有自己的封面时回落到播客封面（对照上游 Feed.getImageUrl() 的显示语义）
     for (const item of items) {
       if (item.imageUrl === '') {
         item.imageUrl = feed.imageUrl;
@@ -226,6 +244,37 @@ export class FeedParser {
     }
     feed.downloadUrl = feed.downloadUrl;
     return { feed: feed, alternateUrls: [] };
+  }
+
+  /** 封面归属：在 item 内 → 单集封面；否则 → 播客封面（对照上游 Itunes/Media 命名空间解析） */
+  private static applyImage(feed: Feed, item: FeedItem | undefined, url: string): void {
+    if (item !== undefined) {
+      item.imageUrl = url;
+    } else {
+      feed.imageUrl = url;
+    }
+  }
+
+  /** enclosure / media:content（非图片）→ 单集媒体 */
+  private static applyEnclosure(item: FeedItem, downloadUrl: string, lengthStr: string, type: string): void {
+    const size: number = lengthStr !== '' ? Number(lengthStr) : 0;
+    const mimeType: string = MimeTypeUtils.guessMimeType(downloadUrl, type);
+    const mediaOptions: FeedMediaOptions = {
+      id: 0,
+      duration: 0,
+      fileUrl: '',
+      downloadUrl: downloadUrl,
+      downloadDate: 0,
+      position: 0,
+      size: size,
+      mimeType: mimeType,
+      lastPlayedTimeHistory: 0,
+      feedItemId: item.id,
+      playedDuration: 0,
+      hasEmbeddedPicture: false,
+      lastPlayedTimeStatistics: 0
+    };
+    item.media = new FeedMedia(mediaOptions);
   }
 
   private static emptyFeedOptions(): FeedOptions {
@@ -266,7 +315,8 @@ export class FeedParser {
       feedSkipEnding: 0,
       episodeNotification: false,
       state: FeedState.STATE_SUBSCRIBED,
-      newEpisodesAction: 0
+      newEpisodesAction: 0,
+      inboxBaseline: 0
     };
   }
 
@@ -276,6 +326,7 @@ export class FeedParser {
       title: '',
       pubDate: 0,
       isPlayed: false,
+      playState: FeedItem.UNPLAYED,
       link: '',
       description: '',
       paymentLink: '',

@@ -119,10 +119,19 @@ const feed = new Feed({
   includeFilter: '', excludeFilter: '', minimalDurationFilter: -1, keepUpdated: true, isPaged: false,
   nextPageLink: '', hide: '', sortOrder: 0, lastUpdateFailed: false, autoDeleteAction: 0,
   feedPlaybackSpeed: 0, feedSkipSilence: 0, feedVolumeAdaption: 0, feedTags: '', feedSkipIntro: 0,
-  feedSkipEnding: 0, episodeNotification: false, state: FeedState.STATE_SUBSCRIBED, newEpisodesAction: 0
+  feedSkipEnding: 0, episodeNotification: false, state: FeedState.STATE_SUBSCRIBED, newEpisodesAction: 0,
+  inboxBaseline: 0
 });
 assert.strictEqual(feed.getTitle(), 'Custom');
 assert.strictEqual(feed.isSubscribed(), true);
+// OPML 批量导入的「先登记、后抓取」模型（Feed.pending）
+const pending = Feed.pending('https://example.com/feed.xml', '示例播客', 'https://example.com', 1700000000000);
+assert.strictEqual(pending.state, FeedState.STATE_SUBSCRIBED);
+assert.strictEqual(pending.downloadUrl, 'https://example.com/feed.xml');
+assert.strictEqual(pending.getTitle(), '示例播客');
+assert.strictEqual(pending.items.length, 0);
+assert.strictEqual(pending.inboxBaseline, 1700000000000);
+assert.strictEqual(pending.lastRefreshAttempt, 0);
 // QueueItem
 const q = new QueueItem(1, 2, 3);
 assert.deepStrictEqual(q.toValues(), { id: 1, feeditem: 2, feed: 3 });

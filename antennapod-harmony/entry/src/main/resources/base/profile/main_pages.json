@@ -4,9 +4,17 @@
     "pages/PlayerSmokePage",
     "pages/AddFeedPage",
     "pages/FeedDetailPage",
+    "pages/FeedSettingsPage",
     "pages/PlayerPage",
     "pages/SearchPage",
     "pages/OpmlPage",
-    "pages/FavoritesPage"
+    "pages/FavoritesPage",
+    "pages/StoragePage",
+    "pages/HistoryPage",
+    "pages/StatsPage",
+    "pages/InboxPage",
+    "pages/DownloadsPage",
+    "pages/SettingsPage",
+    "pages/EpisodesPage"
   ]
 }

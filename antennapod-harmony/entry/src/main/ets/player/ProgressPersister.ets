@@ -8,6 +8,8 @@ const TAG: string = 'ProgressPersister';
 
 export class ProgressPersister {
   private static lastSavedAt: number = 0;
+  private static lastPosition: number = 0;
+  private static lastMediaId: number = 0;
 
   static async save(force: boolean = false): Promise<void> {
     const playable: Playable | undefined = PlayerManager.getCurrent();
@@ -22,9 +24,36 @@ export class ProgressPersister {
     try {
       // Playable.id 对应 FeedMedia.id（由调用方保证）
       await EpisodeRepository.updatePosition(playable.id, position);
+      await ProgressPersister.accumulatePlayedDuration(playable.id, position);
       ProgressPersister.lastSavedAt = now;
     } catch (error) {
       Logger.error(TAG, 'save position failed', new Error((error as Error).message));
     }
+  }
+
+  /** 重置基线（换集时调用，避免把上一集的位置差计入本集收听时长） */
+  static resetBaseline(position: number = 0): void {
+    ProgressPersister.lastPosition = position;
+  }
+
+  /**
+   * 累计实际收听时长（统计页数据源）：
+   * 换集后的首次保存只建立基线；只在位置前进且增量合理（>0 且不超过 10 分钟）时累加，seek 回退不计数。
+   */
+  private static async accumulatePlayedDuration(mediaId: number, position: number): Promise<void> {
+    if (mediaId !== ProgressPersister.lastMediaId) {
+      ProgressPersister.lastMediaId = mediaId;
+      ProgressPersister.lastPosition = position;
+      return;
+    }
+    const delta: number = position - ProgressPersister.lastPosition;
+    ProgressPersister.lastPosition = position;
+    if (delta <= 0 || delta > 10 * 60 * 1000) {
+      return;
+    }
+    if (PlayerManager.getStatus() !== 'PLAYING') {
+      return;
+    }
+    await EpisodeRepository.addPlayedDuration(mediaId, delta);
   }
 }

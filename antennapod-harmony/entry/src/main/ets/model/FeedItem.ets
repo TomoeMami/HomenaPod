@@ -7,6 +7,7 @@ export interface FeedItemOptions {
   title: string;
   pubDate: number;
   isPlayed: boolean;
+  playState: number;
   link: string;
   description: string;
   paymentLink: string;
@@ -23,10 +24,16 @@ export interface FeedItemOptions {
 }
 
 export class FeedItem {
+  /** 播放状态三态（上游 FeedItem.NEW/UNPLAYED/PLAYED，数据库落在 read 列） */
+  static readonly NEW: number = -1;
+  static readonly UNPLAYED: number = 0;
+  static readonly PLAYED: number = 1;
+
   id: number = 0;
   title: string = '';
   pubDate: number = 0;
   isPlayed: boolean = false;
+  playState: number = FeedItem.UNPLAYED;
   link: string = '';
   description: string = '';
   paymentLink: string = '';
@@ -41,12 +48,22 @@ export class FeedItem {
   podcastIndexTranscriptUrl: string = '';
   socialInteractUrl: string = '';
   chapters: Chapter[] = [];
+  // 以下为列表运行时字段（不落库，由查询/页面填充）
+  /** 所属订阅标题（Episodes 全库总表副标题） */
+  feedTitle: string = '';
+  /** 所属订阅封面（Episodes 全库总表行封面） */
+  feedImage: string = '';
+  /** 是否已在队列中（列表状态图标） */
+  inQueue: boolean = false;
+  /** 是否已收藏（列表状态图标） */
+  isFavorite: boolean = false;
 
   constructor(options: FeedItemOptions) {
     this.id = options.id;
     this.title = options.title;
     this.pubDate = options.pubDate;
     this.isPlayed = options.isPlayed;
+    this.playState = options.playState;
     this.link = options.link;
     this.description = options.description;
     this.paymentLink = options.paymentLink;
@@ -83,11 +100,18 @@ export class FeedItem {
       && (this.media.duration <= 0 || this.media.position < this.media.duration - 1000);
   }
 
-  isNew(now: number = Date.now()): boolean {
-    if (this.isPlayed) {
-      return false;
-    }
-    const sevenDays: number = 7 * 24 * 60 * 60 * 1000;
-    return this.pubDate > 0 && now - this.pubDate < sevenDays;
+  /** 上游 FeedItem.isNew()：state == NEW（数据库 read = -1），与「未播放」不等价 */
+  isNew(): boolean {
+    return this.playState === FeedItem.NEW;
+  }
+
+  setNew(): void {
+    this.playState = FeedItem.NEW;
+    this.isPlayed = false;
+  }
+
+  setPlayed(played: boolean): void {
+    this.playState = played ? FeedItem.PLAYED : FeedItem.UNPLAYED;
+    this.isPlayed = played;
   }
 }

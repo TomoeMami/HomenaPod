@@ -2,15 +2,51 @@
   "string": [
     {
       "name": "module_desc",
-      "value": "AntennaPod entry module"
+      "value": "HomenaPod entry module"
+    },
+    {
+      "name": "settings_category_interface",
+      "value": "User interface"
+    },
+    {
+      "name": "settings_category_network",
+      "value": "Network"
+    },
+    {
+      "name": "settings_category_autodownload",
+      "value": "Automatic download"
+    },
+    {
+      "name": "settings_category_storage",
+      "value": "Storage"
+    },
+    {
+      "name": "settings_category_notifications",
+      "value": "Notifications"
+    },
+    {
+      "name": "settings_category_display",
+      "value": "Display"
+    },
+    {
+      "name": "settings_category_automation",
+      "value": "Automation"
+    },
+    {
+      "name": "settings_category_advanced",
+      "value": "Advanced"
+    },
+    {
+      "name": "storage_title",
+      "value": "Storage"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "AntennaPod main ability"
+      "value": "HomenaPod main ability"
     },
     {
       "name": "EntryAbility_label",
-      "value": "AntennaPod"
+      "value": "HomenaPod"
     },
     {
       "name": "skeleton_hint",
@@ -66,7 +102,7 @@
     },
     {
       "name": "setting_theme",
-      "value": "Dark theme"
+      "value": "Theme"
     },
     {
       "name": "setting_stream_first",
@@ -99,6 +135,14 @@
     {
       "name": "mini_player",
       "value": "Mini Player"
+    },
+    {
+      "name": "mini_player_playing",
+      "value": "Playing"
+    },
+    {
+      "name": "mini_player_paused",
+      "value": "Paused"
     },
     {
       "name": "player_play",
@@ -161,6 +205,10 @@
       "value": "URL is empty"
     },
     {
+      "name": "add_url_clear",
+      "value": "Clear"
+    },
+    {
       "name": "subscribe_success",
       "value": "Subscribed: "
     },
@@ -181,6 +229,54 @@
       "value": "FAIL"
     },
     {
+      "name": "download_error_connection",
+      "value": "Connection error"
+    },
+    {
+      "name": "download_error_offline",
+      "value": "Device is offline"
+    },
+    {
+      "name": "download_error_unsupported_network",
+      "value": "Unsupported network type"
+    },
+    {
+      "name": "download_error_cannot_resume",
+      "value": "Cannot resume download"
+    },
+    {
+      "name": "download_error_device_not_found",
+      "value": "Storage device not found"
+    },
+    {
+      "name": "download_error_file_exists",
+      "value": "File already exists"
+    },
+    {
+      "name": "download_error_io",
+      "value": "File error"
+    },
+    {
+      "name": "download_error_http_data",
+      "value": "HTTP data error"
+    },
+    {
+      "name": "download_error_insufficient_space",
+      "value": "Not enough space"
+    },
+    {
+      "name": "download_error_too_many_redirects",
+      "value": "Too many redirects"
+    },
+    {
+      "name": "download_error_http_code",
+      "value": "Unexpected HTTP response"
+    },
+    {
+      "name": "download_retry",
+      "value": "Retry"
+    },
+    {
       "name": "opml_title",
       "value": "OPML Import/Export"
     },
@@ -199,6 +295,10 @@
     {
       "name": "opml_exported",
       "value": "Exported: "
+    },
+    {
+      "name": "opml_import_queued",
+      "value": "Added %s subscriptions. Fetching episodes in the background…"
     },
     {
       "name": "favorites_title",
@@ -263,6 +363,1150 @@
     {
       "name": "setting_schedule_cancel",
       "value": "Cancel"
+    },
+    {
+      "name": "placeholder_episodes",
+      "value": "No episodes"
+    },
+    {
+      "name": "feed_settings",
+      "value": "Feed settings"
+    },
+    {
+      "name": "feed_sort",
+      "value": "Sort"
+    },
+    {
+      "name": "feed_filter",
+      "value": "Filter"
+    },
+    {
+      "name": "feed_refresh",
+      "value": "Refresh"
+    },
+    {
+      "name": "feed_refresh_done",
+      "value": "Updated: "
+    },
+    {
+      "name": "filter_active_hint",
+      "value": "Filter is active"
+    },
+    {
+      "name": "filter_include_label",
+      "value": "Include keywords"
+    },
+    {
+      "name": "filter_exclude_label",
+      "value": "Exclude keywords"
+    },
+    {
+      "name": "filter_min_duration_label",
+      "value": "Minimum duration (seconds)"
+    },
+    {
+      "name": "filter_terms_hint",
+      "value": "Space separated; quotes for phrases"
+    },
+    {
+      "name": "dialog_save",
+      "value": "Save"
+    },
+    {
+      "name": "dialog_cancel",
+      "value": "Cancel"
+    },
+    {
+      "name": "dialog_saved",
+      "value": "Saved"
+    },
+    {
+      "name": "sort_date_new_old",
+      "value": "Newest first"
+    },
+    {
+      "name": "sort_date_old_new",
+      "value": "Oldest first"
+    },
+    {
+      "name": "sort_title_a_z",
+      "value": "Title A-Z"
+    },
+    {
+      "name": "sort_title_z_a",
+      "value": "Title Z-A"
+    },
+    {
+      "name": "sort_duration_short_long",
+      "value": "Shortest first"
+    },
+    {
+      "name": "sort_duration_long_short",
+      "value": "Longest first"
+    },
+    {
+      "name": "episode_download",
+      "value": "Download"
+    },
+    {
+      "name": "episode_download_pause",
+      "value": "Pause"
+    },
+    {
+      "name": "episode_download_resume",
+      "value": "Resume"
+    },
+    {
+      "name": "episode_download_cancel",
+      "value": "Cancel"
+    },
+    {
+      "name": "download_started",
+      "value": "Download started"
+    },
+    {
+      "name": "episode_delete_download",
+      "value": "Delete file"
+    },
+    {
+      "name": "episode_downloading",
+      "value": "Downloading"
+    },
+    {
+      "name": "episode_download_paused",
+      "value": "Paused"
+    },
+    {
+      "name": "episode_mark_played",
+      "value": "Mark as played"
+    },
+    {
+      "name": "episode_mark_unplayed",
+      "value": "Mark as unplayed"
+    },
+    {
+      "name": "episode_add_queue",
+      "value": "Add to queue"
+    },
+    {
+      "name": "episode_play",
+      "value": "Play"
+    },
+    {
+      "name": "queue_added",
+      "value": "Added to queue"
+    },
+    {
+      "name": "downloads_active_title",
+      "value": "Active downloads"
+    },
+    {
+      "name": "downloads_history_title",
+      "value": "Download history"
+    },
+    {
+      "name": "downloads_empty",
+      "value": "No active downloads"
+    },
+    {
+      "name": "sleep_timer_title",
+      "value": "Sleep timer"
+    },
+    {
+      "name": "sleep_timer_custom_hint",
+      "value": "Custom minutes"
+    },
+    {
+      "name": "sleep_timer_start",
+      "value": "Start"
+    },
+    {
+      "name": "sleep_timer_stop",
+      "value": "Stop"
+    },
+    {
+      "name": "sleep_timer_chapter_end",
+      "value": "Stop at end of chapter"
+    },
+    {
+      "name": "sleep_timer_fade",
+      "value": "Fade out volume"
+    },
+    {
+      "name": "sleep_timer_remaining",
+      "value": "Sleep timer:"
+    },
+    {
+      "name": "sleep_timer_waiting_chapter",
+      "value": "Sleep timer: waiting for end of chapter"
+    },
+    {
+      "name": "repeat_off",
+      "value": "Repeat off"
+    },
+    {
+      "name": "repeat_one",
+      "value": "Repeat one"
+    },
+    {
+      "name": "repeat_all",
+      "value": "Repeat all"
+    },
+    {
+      "name": "settings_section_basic",
+      "value": "Basic"
+    },
+    {
+      "name": "settings_section_update",
+      "value": "Update & notifications"
+    },
+    {
+      "name": "settings_section_playback",
+      "value": "Playback"
+    },
+    {
+      "name": "settings_section_filter",
+      "value": "Episode filter"
+    },
+    {
+      "name": "setting_custom_title",
+      "value": "Custom title"
+    },
+    {
+      "name": "setting_tags",
+      "value": "Tags"
+    },
+    {
+      "name": "setting_username",
+      "value": "Username"
+    },
+    {
+      "name": "setting_password",
+      "value": "Password"
+    },
+    {
+      "name": "setting_keep_updated",
+      "value": "Auto update"
+    },
+    {
+      "name": "setting_episode_notification",
+      "value": "New episode notification"
+    },
+    {
+      "name": "setting_auto_download",
+      "value": "Auto download"
+    },
+    {
+      "name": "setting_auto_delete",
+      "value": "Auto delete"
+    },
+    {
+      "name": "setting_new_episodes_action",
+      "value": "New episodes"
+    },
+    {
+      "name": "setting_sort_order",
+      "value": "Sort order"
+    },
+    {
+      "name": "setting_playback_speed",
+      "value": "Playback speed"
+    },
+    {
+      "name": "setting_volume_adaption",
+      "value": "Volume adaption"
+    },
+    {
+      "name": "setting_skip_intro",
+      "value": "Skip intro (seconds)"
+    },
+    {
+      "name": "setting_skip_ending",
+      "value": "Skip ending (seconds)"
+    },
+    {
+      "name": "setting_skip_silence",
+      "value": "Skip silence"
+    },
+    {
+      "name": "setting_unsupported",
+      "value": "Not supported on this platform"
+    },
+    {
+      "name": "setting_not_set",
+      "value": "Not set"
+    },
+    {
+      "name": "autodelete_never",
+      "value": "Never"
+    },
+    {
+      "name": "autodelete_global",
+      "value": "Follow global"
+    },
+    {
+      "name": "autodelete_always",
+      "value": "Always"
+    },
+    {
+      "name": "autodelete_when_played",
+      "value": "After playing"
+    },
+    {
+      "name": "newepisodes_inbox",
+      "value": "Add to inbox"
+    },
+    {
+      "name": "newepisodes_queue",
+      "value": "Add to queue"
+    },
+    {
+      "name": "newepisodes_nothing",
+      "value": "Do nothing"
+    },
+    {
+      "name": "volume_reduce",
+      "value": "Reduce"
+    },
+    {
+      "name": "volume_boost",
+      "value": "Boost"
+    },
+    {
+      "name": "feed_unsubscribe",
+      "value": "Unsubscribe"
+    },
+    {
+      "name": "feed_unsubscribe_confirm",
+      "value": "Unsubscribe this feed and delete its episodes?"
+    },
+    {
+      "name": "queue_locked",
+      "value": "Locked"
+    },
+    {
+      "name": "queue_unlocked",
+      "value": "Unlocked"
+    },
+    {
+      "name": "queue_sort",
+      "value": "Sort"
+    },
+    {
+      "name": "queue_select",
+      "value": "Select"
+    },
+    {
+      "name": "queue_cancel_select",
+      "value": "Done"
+    },
+    {
+      "name": "queue_selected",
+      "value": "Selected:"
+    },
+    {
+      "name": "queue_move_top",
+      "value": "To top"
+    },
+    {
+      "name": "queue_move_bottom",
+      "value": "To bottom"
+    },
+    {
+      "name": "queue_remove",
+      "value": "Remove"
+    },
+    {
+      "name": "queue_clear",
+      "value": "Clear queue"
+    },
+    {
+      "name": "queue_shuffle",
+      "value": "Shuffle"
+    },
+    {
+      "name": "queue_smart_shuffle",
+      "value": "Smart shuffle"
+    },
+    {
+      "name": "setting_theme_system",
+      "value": "System"
+    },
+    {
+      "name": "setting_theme_light",
+      "value": "Light"
+    },
+    {
+      "name": "setting_theme_dark",
+      "value": "Dark"
+    },
+    {
+      "name": "setting_rewind",
+      "value": "Rewind"
+    },
+    {
+      "name": "setting_forward",
+      "value": "Forward"
+    },
+    {
+      "name": "setting_stream_confirm_mobile",
+      "value": "Confirm before streaming on mobile data"
+    },
+    {
+      "name": "settings_section_downloads",
+      "value": "Downloads"
+    },
+    {
+      "name": "setting_auto_download_wifi",
+      "value": "Auto download on Wi-Fi only"
+    },
+    {
+      "name": "setting_auto_download_charging",
+      "value": "Auto download while charging only"
+    },
+    {
+      "name": "setting_auto_download_battery",
+      "value": "Auto download when on battery"
+    },
+    {
+      "name": "setting_cache_limit",
+      "value": "Auto download limit (episodes)"
+    },
+    {
+      "name": "setting_delete_removes_queue",
+      "value": "Remove from queue when deleted"
+    },
+    {
+      "name": "setting_storage",
+      "value": "Storage management"
+    },
+    {
+      "name": "setting_storage_button",
+      "value": "Manage"
+    },
+    {
+      "name": "settings_section_library",
+      "value": "Library"
+    },
+    {
+      "name": "setting_history",
+      "value": "Playback history"
+    },
+    {
+      "name": "setting_stats",
+      "value": "Listening stats"
+    },
+    {
+      "name": "setting_storage_clear_all",
+      "value": "Delete all downloads"
+    },
+    {
+      "name": "storage_empty",
+      "value": "No downloaded episodes"
+    },
+    {
+      "name": "storage_total",
+      "value": "Total:"
+    },
+    {
+      "name": "storage_deleted",
+      "value": "Downloads deleted"
+    },
+    {
+      "name": "history_empty",
+      "value": "No playback history"
+    },
+    {
+      "name": "history_continue",
+      "value": "Continue listening"
+    },
+    {
+      "name": "episodes_label",
+      "value": "Episodes"
+    },
+    {
+      "name": "multi_select",
+      "value": "Multi-select"
+    },
+    {
+      "name": "multi_select_mark_played_confirmation",
+      "value": "Please confirm that you want to mark all selected items as played."
+    },
+    {
+      "name": "multi_select_mark_unplayed_confirmation",
+      "value": "Please confirm that you want to mark all selected items as unplayed."
+    },
+    {
+      "name": "history_all",
+      "value": "All history"
+    },
+    {
+      "name": "stats_empty",
+      "value": "No listening data yet"
+    },
+    {
+      "name": "stats_by_month",
+      "value": "By month"
+    },
+    {
+      "name": "stats_by_feed",
+      "value": "By subscription"
+    },
+    {
+      "name": "stats_total",
+      "value": "Total listened:"
+    },
+    {
+      "name": "subscriptions_search_hint",
+      "value": "Search subscriptions"
+    },
+    {
+      "name": "refresh_running",
+      "value": "Refreshing..."
+    },
+    {
+      "name": "stream_confirm_message",
+      "value": "Streaming over mobile data. Continue?"
+    },
+    {
+      "name": "stream_confirm_play",
+      "value": "Continue"
+    },
+    {
+      "name": "episode_share",
+      "value": "Share link"
+    },
+    {
+      "name": "share_no_link",
+      "value": "No link to share"
+    },
+    {
+      "name": "share_copied",
+      "value": "Link copied"
+    },
+    {
+      "name": "add_url_invalid",
+      "value": "Enter a valid http(s) feed URL"
+    },
+    {
+      "name": "add_feed_auth",
+      "value": "Private feed (HTTP auth)"
+    },
+    {
+      "name": "setting_language",
+      "value": "Language"
+    },
+    {
+      "name": "setting_language_system",
+      "value": "System"
+    },
+    {
+      "name": "setting_language_zh",
+      "value": "Chinese"
+    },
+    {
+      "name": "setting_language_en",
+      "value": "English"
+    },
+    {
+      "name": "language_restart",
+      "value": "Language will change after restart"
+    },
+    {
+      "name": "sleep_timer_reset",
+      "value": "Sleep timer reset"
+    },
+    {
+      "name": "tab_home",
+      "value": "Home"
+    },
+    {
+      "name": "home_title",
+      "value": "Home"
+    },
+    {
+      "name": "home_edit_blocks",
+      "value": "Edit blocks"
+    },
+    {
+      "name": "home_continue",
+      "value": "Continue listening"
+    },
+    {
+      "name": "home_new",
+      "value": "New episodes"
+    },
+    {
+      "name": "home_random",
+      "value": "Random surprise"
+    },
+    {
+      "name": "home_top",
+      "value": "Most listened"
+    },
+    {
+      "name": "home_downloads",
+      "value": "Manage downloads"
+    },
+    {
+      "name": "home_see_all",
+      "value": "See all"
+    },
+    {
+      "name": "home_downloads_summary",
+      "value": "Downloaded episodes"
+    },
+    {
+      "name": "inbox_title",
+      "value": "Inbox"
+    },
+    {
+      "name": "inbox_empty",
+      "value": "No episodes in the inbox"
+    },
+    {
+      "name": "inbox_empty_message",
+      "value": "New episodes will show up here. You can then decide whether you are interested in them."
+    },
+    {
+      "name": "remove_all_inbox_label",
+      "value": "Remove all from inbox"
+    },
+    {
+      "name": "remove_all_inbox_confirmation_msg",
+      "value": "This removes the new flag from all episodes. They stay in your subscriptions but no longer appear in the inbox."
+    },
+    {
+      "name": "removed_all_inbox_msg",
+      "value": "Removed all episodes from the inbox"
+    },
+    {
+      "name": "removed_from_inbox_msg",
+      "value": "Removed from inbox"
+    },
+    {
+      "name": "inbox_refresh",
+      "value": "Refresh"
+    },
+    {
+      "name": "notification_open",
+      "value": "Open"
+    },
+    {
+      "name": "tab_more",
+      "value": "More"
+    },
+    {
+      "name": "home_welcome_title",
+      "value": "Welcome to HomenaPod!"
+    },
+    {
+      "name": "home_welcome_text",
+      "value": "You are not subscribed to any podcasts yet. Open the Subscriptions tab to add a podcast."
+    },
+    {
+      "name": "home_more_episodes",
+      "value": "Episodes"
+    },
+    {
+      "name": "home_continue_empty",
+      "value": "You can add episodes by downloading them or long-pressing them and selecting \"Add to queue\"."
+    },
+    {
+      "name": "home_new_empty",
+      "value": "New episodes will show up here. You can then decide whether you are interested in them."
+    },
+    {
+      "name": "home_surprise_empty",
+      "value": "You already played all recent episodes. Nothing to be surprised here ;)"
+    },
+    {
+      "name": "home_downloads_empty",
+      "value": "You can download any episode to listen to it offline."
+    },
+    {
+      "name": "home_configure",
+      "value": "Configure home screen"
+    },
+    {
+      "name": "home_section_shown",
+      "value": "Shown"
+    },
+    {
+      "name": "home_section_hidden",
+      "value": "Hidden"
+    },
+    {
+      "name": "home_edit_hint",
+      "value": "Drag the handle to change the order, use the switch to show or hide a block."
+    },
+    {
+      "name": "stats_include_marked",
+      "value": "Include duration of episodes that are just marked as played"
+    },
+    {
+      "name": "subscriptions_filtered",
+      "value": "Filtered"
+    },
+    {
+      "name": "subscriptions_empty_hint",
+      "value": "To subscribe to a podcast, press the plus button below."
+    },
+    {
+      "name": "subscriptions_filtered_hint",
+      "value": "Try clearing the filter to see more subscriptions."
+    },
+    {
+      "name": "subscriptions_count_columns",
+      "value": "Number of columns"
+    },
+    {
+      "name": "subscriptions_display_list",
+      "value": "List"
+    },
+    {
+      "name": "subscriptions_show_titles",
+      "value": "Show titles"
+    },
+    {
+      "name": "subscriptions_counter",
+      "value": "Counter display"
+    },
+    {
+      "name": "subscriptions_counter_greater_zero",
+      "value": "Only with unplayed episodes"
+    },
+    {
+      "name": "auto_downloaded",
+      "value": "Auto download"
+    },
+    {
+      "name": "not_auto_downloaded",
+      "value": "No auto download"
+    },
+    {
+      "name": "kept_updated",
+      "value": "Keep updated"
+    },
+    {
+      "name": "not_kept_updated",
+      "value": "Not updated"
+    },
+    {
+      "name": "new_episode_notification_enabled",
+      "value": "New episode notification"
+    },
+    {
+      "name": "new_episode_notification_disabled",
+      "value": "No new episode notification"
+    },
+    {
+      "name": "feed_order_unplayed",
+      "value": "Unplayed episodes"
+    },
+    {
+      "name": "feed_order_alphabetical",
+      "value": "Alphabetical"
+    },
+    {
+      "name": "feed_order_last_update",
+      "value": "Last update"
+    },
+    {
+      "name": "feed_order_most_played",
+      "value": "Most played"
+    },
+    {
+      "name": "filter_reset",
+      "value": "Reset"
+    },
+    {
+      "name": "player_show_notes",
+      "value": "Show notes"
+    },
+    {
+      "name": "more_history",
+      "value": "Playback history"
+    },
+    {
+      "name": "more_statistics",
+      "value": "Statistics"
+    },
+    {
+      "name": "more_add_feed",
+      "value": "Add podcast"
+    },
+    {
+      "name": "refresh_label",
+      "value": "Refresh"
+    },
+    {
+      "name": "queue_info",
+      "value": "%1$s episodes • %2$s left"
+    },
+    {
+      "name": "time_hour_unit",
+      "value": "h"
+    },
+    {
+      "name": "time_minute_unit",
+      "value": "min"
+    },
+    {
+      "name": "description_label",
+      "value": "Description"
+    },
+    {
+      "name": "preview_episodes",
+      "value": "Preview episodes"
+    },
+    {
+      "name": "queue_clear_confirm",
+      "value": "Clear the whole queue?"
+    },
+    {
+      "name": "player_speed_label",
+      "value": "Speed"
+    },
+    {
+      "name": "player_rewind_label",
+      "value": "Rewind"
+    },
+    {
+      "name": "player_forward_label",
+      "value": "Fast-forward"
+    },
+    {
+      "name": "player_skip_label",
+      "value": "Next"
+    },
+    {
+      "name": "clear_history",
+      "value": "Clear history"
+    },
+    {
+      "name": "downloads_section_completed",
+      "value": "Completed"
+    },
+    {
+      "name": "downloads_empty_hint",
+      "value": "You can download episodes on the podcast details screen."
+    },
+    {
+      "name": "favorites_empty_hint",
+      "value": "Mark episodes as favorites by tapping the star icon."
+    },
+    {
+      "name": "history_empty_hint",
+      "value": "After you listen to an episode, it will appear here."
+    },
+    {
+      "name": "stats_title",
+      "value": "Statistics"
+    },
+    {
+      "name": "stats_tab_years",
+      "value": "Years"
+    },
+    {
+      "name": "stats_time_per_month",
+      "value": "Time played per month"
+    },
+    {
+      "name": "search_podcast_hint",
+      "value": "Search podcast…"
+    },
+    {
+      "name": "add_podcast_by_url",
+      "value": "Add podcast by RSS address"
+    },
+    {
+      "name": "add_local_folder",
+      "value": "Add local folder"
+    },
+    {
+      "name": "search_itunes_label",
+      "value": "Search Apple Podcasts"
+    },
+    {
+      "name": "search_fyyd_label",
+      "value": "Search fyyd"
+    },
+    {
+      "name": "search_podcastindex_label",
+      "value": "Search Podcast Index"
+    },
+    {
+      "name": "opml_add_podcast_label",
+      "value": "Import podcast list (OPML)"
+    },
+    {
+      "name": "type_to_search",
+      "value": "Type a query to search"
+    },
+    {
+      "name": "select_all_label",
+      "value": "Select all"
+    },
+    {
+      "name": "deselect_all_label",
+      "value": "Deselect all"
+    },
+    {
+      "name": "confirm_label",
+      "value": "Confirm"
+    },
+    {
+      "name": "cancel_label",
+      "value": "Cancel"
+    },
+    {
+      "name": "queue_empty_title",
+      "value": "No queued episodes"
+    },
+    {
+      "name": "queue_empty_hint",
+      "value": "Add an episode by downloading it, or long press an episode and select \"Add to queue\"."
+    },
+    {
+      "name": "queue_go_to_inbox",
+      "value": "Go to inbox"
+    },
+    {
+      "name": "queue_selected_count",
+      "value": "%1$s/%2$s selected"
+    },
+    {
+      "name": "queue_select_all_above",
+      "value": "Select all above"
+    },
+    {
+      "name": "queue_select_all_below",
+      "value": "Select all below"
+    },
+    {
+      "name": "swipe_action_remove_from_queue",
+      "value": "Remove from queue"
+    },
+    {
+      "name": "reset_playback_position_label",
+      "value": "Reset playback position"
+    },
+    {
+      "name": "skip_episode_label",
+      "value": "Skip episode"
+    },
+    {
+      "name": "remove_inbox_label",
+      "value": "Remove from inbox"
+    },
+    {
+      "name": "add_to_favorites_label",
+      "value": "Add to favorites"
+    },
+    {
+      "name": "remove_from_favorites_label",
+      "value": "Remove from favorites"
+    },
+    {
+      "name": "lock_queue_label",
+      "value": "Lock queue"
+    },
+    {
+      "name": "queue_lock_warning",
+      "value": "If you lock the queue, you can no longer reorder episodes."
+    },
+    {
+      "name": "checkbox_do_not_show_again",
+      "value": "Do not show again"
+    },
+    {
+      "name": "clear_queue_confirmation_msg",
+      "value": "Please confirm that you want to remove ALL episodes from the queue."
+    },
+    {
+      "name": "keep_sorted_label",
+      "value": "Keep sorted"
+    },
+    {
+      "name": "sort_feed_title_a_z",
+      "value": "Podcast title A-Z"
+    },
+    {
+      "name": "sort_feed_title_z_a",
+      "value": "Podcast title Z-A"
+    },
+    {
+      "name": "sort_random_label",
+      "value": "Random"
+    },
+    {
+      "name": "removed_from_queue_message",
+      "value": "Removed from queue"
+    },
+    {
+      "name": "undo_label",
+      "value": "Undo"
+    },
+    {
+      "name": "marked_played_message",
+      "value": "Marked as played"
+    },
+    {
+      "name": "marked_unplayed_message",
+      "value": "Marked as unplayed"
+    },
+    {
+      "name": "moved_to_top_message",
+      "value": "Moved to top"
+    },
+    {
+      "name": "moved_to_bottom_message",
+      "value": "Moved to bottom"
+    },
+    {
+      "name": "deleted_episode_message",
+      "value": "File deleted"
+    },
+    {
+      "name": "no_items_selected_message",
+      "value": "No items selected"
+    },
+    {
+      "name": "setting_time_respects_speed",
+      "value": "Time respects playback speed"
+    },
+    {
+      "name": "setting_show_remaining_time",
+      "value": "Show remaining time"
+    },
+    {
+      "name": "setting_swipe_actions",
+      "value": "Swipe actions"
+    },
+    {
+      "name": "swipe_left_label",
+      "value": "Swipe left"
+    },
+    {
+      "name": "swipe_right_label",
+      "value": "Swipe right"
+    },
+    {
+      "name": "swipe_enable_label",
+      "value": "Enable swipe actions"
+    },
+    {
+      "name": "swipe_none_label",
+      "value": "None"
+    },
+    {
+      "name": "swipe_screen_queue",
+      "value": "Queue"
+    },
+    {
+      "name": "swipe_screen_inbox",
+      "value": "Inbox"
+    },
+    {
+      "name": "swipe_screen_feed_detail",
+      "value": "Individual subscription"
+    },
+    {
+      "name": "swipe_screen_downloads",
+      "value": "Downloads"
+    },
+    {
+      "name": "search_in_queue",
+      "value": "Search queue"
+    },
+    {
+      "name": "search_in_queue_hint",
+      "value": "Search episodes in the queue"
+    },
+    {
+      "name": "sort_episode_title",
+      "value": "Episode title"
+    },
+    {
+      "name": "sort_podcast_title",
+      "value": "Podcast title"
+    },
+    {
+      "name": "sort_duration_label",
+      "value": "Duration"
+    },
+    {
+      "name": "sort_date_label",
+      "value": "Date"
+    },
+    {
+      "name": "setting_edit_tags",
+      "value": "Edit tags"
+    },
+    {
+      "name": "tag_untagged_label",
+      "value": "Untagged"
+    },
+    {
+      "name": "tag_rename_title",
+      "value": "Rename tag"
+    },
+    {
+      "name": "tag_delete_title",
+      "value": "Delete tag"
+    },
+    {
+      "name": "tag_delete_confirm",
+      "value": "Please confirm that you want to delete the tag \"%1$s\"."
+    },
+    {
+      "name": "tag_name_hint",
+      "value": "Tag name"
+    },
+    {
+      "name": "tags_new_hint",
+      "value": "New tag"
+    },
+    {
+      "name": "tags_add",
+      "value": "Add"
+    },
+    {
+      "name": "subscriptions_selected_count",
+      "value": "%1$s/%2$s selected"
+    },
+    {
+      "name": "subscriptions_share",
+      "value": "Share"
+    },
+    {
+      "name": "subscriptions_counter_inbox",
+      "value": "Number of episodes in the inbox"
+    },
+    {
+      "name": "subscriptions_counter_unplayed",
+      "value": "Number of unplayed episodes"
+    },
+    {
+      "name": "subscriptions_counter_downloaded",
+      "value": "Number of downloaded episodes"
+    },
+    {
+      "name": "subscriptions_counter_downloaded_unplayed",
+      "value": "Number of downloaded and unplayed episodes"
+    },
+    {
+      "name": "subscriptions_counter_none",
+      "value": "None"
+    },
+    {
+      "name": "updated_feeds_batch",
+      "value": "Updated %1$s subscriptions"
+    },
+    {
+      "name": "playback_speed_global",
+      "value": "Use global"
     }
   ]
 }

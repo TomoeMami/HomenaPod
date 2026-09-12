@@ -1,5 +1,21 @@
 // Port of: parser/feed/util/DurationParser.java
 export class DurationUtils {
+  /** 毫秒 -> 时长文本（H:MM:SS 或 M:SS），用于列表展示 */
+  static format(ms: number): string {
+    if (ms === undefined || ms === null || ms <= 0 || !Number.isFinite(ms)) {
+      return '';
+    }
+    const totalSeconds: number = Math.floor(ms / 1000);
+    const hours: number = Math.floor(totalSeconds / 3600);
+    const minutes: number = Math.floor((totalSeconds % 3600) / 60);
+    const seconds: number = totalSeconds % 60;
+    const pad = (value: number): string => value < 10 ? '0' + value : value.toString();
+    if (hours > 0) {
+      return hours + ':' + pad(minutes) + ':' + pad(seconds);
+    }
+    return minutes + ':' + pad(seconds);
+  }
+
   static parseToMillis(value: string): number {
     if (value === null || value === undefined) {
       return 0;

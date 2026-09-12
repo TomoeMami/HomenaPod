@@ -1,7 +1,7 @@
 {
   "app": {
-    "bundleName": "de.danoeh.antennapod",
-    "vendor": "antennapod",
+    "bundleName": "com.homenapod.app",
+    "vendor": "HomenaPod",
     "versionCode": 1000000,
     "versionName": "1.0.0",
     "icon": "$media:app_icon",

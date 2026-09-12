@@ -1,6 +1,6 @@
 // Port of: storage/database/src/main/java/de/danoeh/antennapod/storage/database/PodDBAdapter.java (CREATE TABLE statements)
-export const DB_NAME: string = 'Antennapod.db';
-export const DB_VERSION: number = 1;
+export const DB_NAME: string = 'Homenapod.db';
+export const DB_VERSION: number = 2;
 
 export const TABLE_FEEDS: string = 'Feeds';
 export const TABLE_FEED_ITEMS: string = 'FeedItems';
@@ -48,7 +48,8 @@ export const DDL: string[] = [
     feed_skip_ending INTEGER DEFAULT 0,
     episode_notification INTEGER DEFAULT 0,
     state INTEGER DEFAULT 1,
-    new_episodes_action INTEGER DEFAULT 0
+    new_episodes_action INTEGER DEFAULT 0,
+    inbox_baseline INTEGER DEFAULT 0
   )`,
   `CREATE TABLE IF NOT EXISTS FeedItems (
     id INTEGER PRIMARY KEY AUTOINCREMENT,

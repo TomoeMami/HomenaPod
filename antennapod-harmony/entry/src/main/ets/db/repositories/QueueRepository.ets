@@ -43,6 +43,22 @@ export class QueueRepository {
     await DbManager.getStore().delete(predicates);
   }
 
+  /** 插入到指定位置（0=队首），内部用 add + move 完成重编号 */
+  static async addAt(feedItemId: number, feedId: number, index: number): Promise<void> {
+    await QueueRepository.add(feedItemId, feedId);
+    if (index > 0) {
+      await QueueRepository.move(feedItemId, index);
+    }
+  }
+
+  /** 整体替换队列顺序（排序/随机/智能乱序使用） */
+  static async replaceOrder(items: QueueItem[]): Promise<void> {
+    await QueueRepository.clear();
+    for (const item of items) {
+      await QueueRepository.add(item.feedItemId, item.feedId);
+    }
+  }
+
   static async clear(): Promise<void> {
     const predicates: relationalStore.RdbPredicates = new relationalStore.RdbPredicates(TABLE_QUEUE);
     await DbManager.getStore().delete(predicates);
@@ -57,11 +73,8 @@ export class QueueRepository {
     const moved: QueueItem = items[currentIndex];
     items.splice(currentIndex, 1);
     items.splice(targetIndex, 0, moved);
-    for (let i: number = 0; i < items.length; i++) {
-      const predicates: relationalStore.RdbPredicates = new relationalStore.RdbPredicates(TABLE_QUEUE);
-      predicates.equalTo('id', items[i].id);
-      const values: relationalStore.ValuesBucket = { id: i + 1, feeditem: items[i].feedItemId, feed: items[i].feedId };
-      await DbManager.getStore().update(values, predicates);
-    }
+    // 不能就地重写 id：Queue.id 是主键，把 id=2 改成 id=1 会撞上已有行，
+    // 整条 update 失败后移动静默失效。改为整体重排（clear + 按序 add，id 重新从 1 递增）。
+    await QueueRepository.replaceOrder(items);
   }
 }

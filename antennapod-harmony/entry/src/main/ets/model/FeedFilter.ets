@@ -71,14 +71,10 @@ export class FeedFilter {
   private parseTerms(filter: string): string[] {
     const terms: string[] = [];
     const pattern: RegExp = /([^"\s]\S*|".+?")\s*/g;
-    const matches: RegExpMatchArray[] = [];
-    let match: RegExpMatchArray | null = pattern.exec(filter);
+    let match: RegExpExecArray | null = pattern.exec(filter);
     while (match !== null) {
-      matches.push(match);
+      terms.push(match[1].replace(/"/g, ''));
       match = pattern.exec(filter);
-    }
-    for (const m of matches) {
-      terms.push(m[1].replace(/"/g, ''));
     }
     return terms;
   }

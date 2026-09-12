@@ -34,7 +34,7 @@ export interface HttpResponse {
 }
 
 const DEFAULT_TIMEOUT: number = 20000;
-const DEFAULT_USER_AGENT: string = 'AntennaPod/3.12.1 (HarmonyOS NEXT)';
+const DEFAULT_USER_AGENT: string = 'HomenaPod/1.0.0 (HarmonyOS NEXT)';
 
 export class HttpClient {
   static async get(url: string, headers: Record<string, string> = {}): Promise<HttpResponse> {

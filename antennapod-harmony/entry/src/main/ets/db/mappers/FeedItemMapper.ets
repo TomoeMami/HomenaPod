@@ -5,11 +5,14 @@ import { FeedMedia, FeedMediaOptions } from '../../model/FeedMedia';
 
 export class FeedItemMapper {
   static map(rs: relationalStore.ResultSet): FeedItem {
+    // read 列为三态：-1=新（Inbox）、0=未播放、1=已播放（上游 FeedItemFilterQuery）
+    const readValue: number = rs.getColumnIndex('read') >= 0 ? rs.getLong(rs.getColumnIndex('read')) : 0;
     const options: FeedItemOptions = {
       id: rs.getLong(rs.getColumnIndex('id')),
       title: FeedItemMapper.str(rs, 'title'),
       pubDate: rs.getLong(rs.getColumnIndex('pubdate')),
-      isPlayed: rs.getLong(rs.getColumnIndex('read')) !== 0,
+      isPlayed: readValue === 1,
+      playState: readValue,
       link: FeedItemMapper.str(rs, 'link'),
       description: FeedItemMapper.str(rs, 'description'),
       paymentLink: FeedItemMapper.str(rs, 'payment_link'),
@@ -46,11 +49,47 @@ export class FeedItemMapper {
     return new FeedMedia(options);
   }
 
+  /**
+   * JOIN 查询中带别名前缀的媒体列映射（Inbox 分页用）。
+   * FeedItems 与 FeedMedia 都有 id 列，同一条结果集里必须用前缀区分；
+   * 该行没有媒体（LEFT JOIN 落空）时返回 undefined。
+   */
+  static mapMediaPrefixed(rs: relationalStore.ResultSet, prefix: string): FeedMedia | undefined {
+    const id: number = FeedItemMapper.num(rs, prefix + 'id', -1);
+    if (id < 0) {
+      return undefined;
+    }
+    const options: FeedMediaOptions = {
+      id: id,
+      duration: FeedItemMapper.num(rs, prefix + 'duration', 0),
+      fileUrl: FeedItemMapper.str(rs, prefix + 'file_url'),
+      downloadUrl: FeedItemMapper.str(rs, prefix + 'download_url'),
+      downloadDate: FeedItemMapper.num(rs, prefix + 'download_date', 0),
+      position: FeedItemMapper.num(rs, prefix + 'position', 0),
+      size: FeedItemMapper.num(rs, prefix + 'size', 0),
+      mimeType: FeedItemMapper.str(rs, prefix + 'mime_type'),
+      lastPlayedTimeHistory: FeedItemMapper.num(rs, prefix + 'last_played_time_history', 0),
+      feedItemId: FeedItemMapper.num(rs, prefix + 'feeditem', 0),
+      playedDuration: FeedItemMapper.num(rs, prefix + 'played_duration', 0),
+      hasEmbeddedPicture: FeedItemMapper.num(rs, prefix + 'has_embedded_picture', 0) !== 0,
+      lastPlayedTimeStatistics: FeedItemMapper.num(rs, prefix + 'last_played_time_statistics', 0)
+    };
+    return new FeedMedia(options);
+  }
+
   private static str(rs: relationalStore.ResultSet, column: string): string {
     const index: number = rs.getColumnIndex(column);
     if (index < 0 || rs.isColumnNull(index)) {
       return '';
     }
     return rs.getString(index);
+  }
+
+  private static num(rs: relationalStore.ResultSet, column: string, fallback: number): number {
+    const index: number = rs.getColumnIndex(column);
+    if (index < 0 || rs.isColumnNull(index)) {
+      return fallback;
+    }
+    return rs.getLong(index);
   }
 }

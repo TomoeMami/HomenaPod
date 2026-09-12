@@ -42,9 +42,19 @@ export class FeedMapper {
       feedSkipEnding: rs.getLong(rs.getColumnIndex('feed_skip_ending')),
       episodeNotification: rs.getLong(rs.getColumnIndex('episode_notification')) !== 0,
       state: rs.getLong(rs.getColumnIndex('state')) as FeedState,
-      newEpisodesAction: rs.getLong(rs.getColumnIndex('new_episodes_action'))
+      newEpisodesAction: rs.getLong(rs.getColumnIndex('new_episodes_action')),
+      inboxBaseline: FeedMapper.num(rs, 'inbox_baseline')
     };
     return new Feed(options);
+  }
+
+  /** 列缺失（旧库尚未迁移）或为 NULL 时返回 0，避免取列索引抛错 */
+  private static num(rs: relationalStore.ResultSet, column: string): number {
+    const index: number = rs.getColumnIndex(column);
+    if (index < 0 || rs.isColumnNull(index)) {
+      return 0;
+    }
+    return rs.getLong(index);
   }
 
   private static sortOrder(rs: relationalStore.ResultSet): SortOrder {

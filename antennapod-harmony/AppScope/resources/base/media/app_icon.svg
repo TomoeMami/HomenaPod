@@ -1,5 +1,45 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
-  <rect width="1024" height="1024" rx="224" fill="#2962FF"/>
-  <circle cx="512" cy="512" r="132" fill="#FFFFFF"/>
-  <path d="M280 340 L744 684 M744 340 L280 684" stroke="#FFFFFF" stroke-width="56" stroke-linecap="round"/>
+  <defs>
+    <!-- 底色：蓝 → 深蓝 → 紫 的对角渐变 -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3498DB"/>
+      <stop offset="50%" stop-color="#0056B3"/>
+      <stop offset="100%" stop-color="#4A00E0"/>
+    </linearGradient>
+
+    <!-- 声波：水平方向由弱到强再到弱的白色渐变 -->
+    <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.4"/>
+      <stop offset="50%" stop-color="#FFFFFF" stop-opacity="0.9"/>
+      <stop offset="100%" stop-color="#FFFFFF" stop-opacity="0.4"/>
+    </linearGradient>
+
+    <!-- 人物内侧柔影：ArkUI 不支持 feDropShadow，改用 feOffset + feGaussianBlur -->
+    <filter id="innerShadow">
+      <feOffset dx="0" dy="8"/>
+      <feGaussianBlur stdDeviation="12"/>
+    </filter>
+  </defs>
+
+  <!-- 底色：满幅圆角方形（贴边，无外投影，避免上下漏黑边） -->
+  <rect width="1024" height="1024" rx="220" ry="220" fill="url(#bgGradient)"/>
+
+  <!-- 声波：三层同心圆环 -->
+  <circle cx="512" cy="480" r="200" fill="none" stroke="url(#waveGradient)" stroke-width="56" opacity="0.9"/>
+  <circle cx="512" cy="480" r="300" fill="none" stroke="url(#waveGradient)" stroke-width="56" opacity="0.7"/>
+  <circle cx="512" cy="480" r="400" fill="none" stroke="url(#waveGradient)" stroke-width="56" opacity="0.4"/>
+
+  <!-- 人物柔影（位于人物主体之下） -->
+  <g fill="#000000" fill-opacity="0.2" stroke="#000000" stroke-opacity="0.2" filter="url(#innerShadow)">
+    <circle cx="512" cy="420" r="64"/>
+    <path d="M 340 870 L 512 420 L 684 870" fill="none" stroke-width="68" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 390 660 Q 512 780 634 660" fill="none" stroke-width="68" stroke-linecap="round"/>
+  </g>
+
+  <!-- 人物主体：头部 + 身体 + 双臂 -->
+  <g fill="#FFFFFF" stroke="#FFFFFF">
+    <circle cx="512" cy="420" r="64"/>
+    <path d="M 340 870 L 512 420 L 684 870" fill="none" stroke-width="68" stroke-linecap="round" stroke-linejoin="round"/>
+    <path d="M 390 660 Q 512 780 634 660" fill="none" stroke-width="68" stroke-linecap="round"/>
+  </g>
 </svg>
