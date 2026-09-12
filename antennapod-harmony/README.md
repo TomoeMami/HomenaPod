@@ -1,13 +1,13 @@
-# AntennaPod for HarmonyOS NEXT
+# HomenaPod for HarmonyOS NEXT
 
-AntennaPod 的 HarmonyOS NEXT 原生移植（ArkTS/ArkUI，API 12 兼容基线）。
-参考实现：上游 `AntennaPod/AntennaPod`（仅作为移植参考，不提交其 Android 代码）。
+HomenaPod 的 HarmonyOS NEXT 原生实现（ArkTS/ArkUI，API 12 兼容基线）。
+来源与许可：本项目是基于 AntennaPod（GPL-3.0）的鸿蒙移植，保留上游许可与归属声明；参考实现：上游 `AntennaPod/AntennaPod`（仅作为移植参考，不提交其 Android 代码）。详见 `NOTICE.md`。
 
 ## 当前状态
 
-- 阶段：MVP 主体代码已静态实现（T0–T4 大部分）。
-- 构建：**尚未在 DevEco 工具链下验证**；本仓库无 hvigor/ohpm。
-- 规划与任务：见仓库根目录 `../docs/02-task-list.md` 与 `../docs/progress-log.md`。
+- 阶段：MVP+ 功能已实现并在 HarmonyOS 模拟器上逐项上机验收。
+- 构建：`hvigor` `Clean → CompileArkTS → PackageHap` 通过，产物为 **未签名 HAP**（`build-profile.json5` 的 `signingConfigs` 留空，模拟器可直接安装；真机需自行配置签名，见 `../docs/signing-guide.md`）。
+- 统一入口文档：仓库根 [`README.md`](../README.md)；计划与任务见 `../PLAN.md` 与 `../docs/02-task-list.md`。
 
 ## 环境要求
 
@@ -96,12 +96,10 @@ bash scripts/env-report.sh
 
 输出 node/java/ohpm/hvigor/DEVECO_SDK_HOME、路径残留与 check-project 结果。
 
-构建阻塞详细说明见仓库根 `../docs/toolchain-blocker.md`。
-
-## 构建入口（工具链就绪后）
+## 构建入口
 
 ```bash
 bash scripts/build.sh
 ```
 
-未安装 hvigorw 时会提示并给出阻塞文档。完整交接说明见 `../docs/HANDOFF.md`。
+未安装 `hvigorw` 时会提示所需环境变量并以非零码退出。

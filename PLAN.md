@@ -1,4 +1,9 @@
-# AntennaPod → HarmonyOS NEXT 移植总计划
+# HomenaPod 移植总计划（源自 AntennaPod → HarmonyOS NEXT）
+
+> **说明**：本计划里提到的执行流水文件（`docs/progress-log.md`、`docs/e2e-report.md`、`STATUS.md`、
+> `docs/device-test-report.md`、`antennapod-harmony/CHANGELOG.md` 等）只在本地开发工作区保留，
+> **不随公开仓库发布**；仓库中公开的是设计/规格类文档（`docs/01`–`docs/07`、`feature-diff/`、
+> `harmony-counterparts.md`、`_ref-spec-*.md`）。
 
 - 文档版本：1.0
 - 制定日期：2026-09-08
@@ -9,7 +14,7 @@
 
 ## 1. 目标
 
-在 **HarmonyOS NEXT（纯血鸿蒙，API 12+，建议 DevEco Studio 5.x / HarmonyOS 5.x）** 上用 **ArkTS + ArkUI** 原生重写 AntennaPod，第一期交付 **MVP**，随后分期扩展功能对齐。
+在 **HarmonyOS NEXT（纯血鸿蒙，API 12+，建议 DevEco Studio 5.x / HarmonyOS 5.x）** 上用 **ArkTS + ArkUI** 原生重写 AntennaPod，产品定名 **HomenaPod**（bundleName `com.homenapod.app`），第一期交付 **MVP**，随后分期扩展功能对齐。
 
 | 维度 | 决策 |
 |---|---|

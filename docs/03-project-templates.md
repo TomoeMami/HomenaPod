@@ -116,7 +116,7 @@ export default {
 ```json5
 {
   "modelVersion": "5.0.0",
-  "description": "AntennaPod for HarmonyOS NEXT",
+  "description": "HomenaPod for HarmonyOS NEXT",
   "dependencies": {},
   "devDependencies": {}
 }
@@ -127,8 +127,8 @@ export default {
 ```json5
 {
   "app": {
-    "bundleName": "de.danoeh.antennapod",
-    "vendor": "antennapod",
+    "bundleName": "com.homenapod.app",
+    "vendor": "HomenaPod",
     "versionCode": 1000000,
     "versionName": "1.0.0",
     "icon": "$media:app_icon",
@@ -144,7 +144,7 @@ export default {
   "string": [
     {
       "name": "app_name",
-      "value": "AntennaPod"
+      "value": "HomenaPod"
     }
   ]
 }
@@ -209,7 +209,7 @@ export default {
 {
   "name": "entry",
   "version": "1.0.0",
-  "description": "AntennaPod HarmonyOS NEXT entry module",
+  "description": "HomenaPod HarmonyOS NEXT entry module",
   "main": "",
   "author": "",
   "license": "GPL-3.0-only",
@@ -333,15 +333,15 @@ struct Index {
   "string": [
     {
       "name": "module_desc",
-      "value": "AntennaPod entry module"
+      "value": "HomenaPod entry module"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "AntennaPod main ability"
+      "value": "HomenaPod main ability"
     },
     {
       "name": "EntryAbility_label",
-      "value": "AntennaPod"
+      "value": "HomenaPod"
     },
     {
       "name": "skeleton_hint",
@@ -389,15 +389,15 @@ struct Index {
   "string": [
     {
       "name": "module_desc",
-      "value": "AntennaPod entry module"
+      "value": "HomenaPod entry module"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "AntennaPod main ability"
+      "value": "HomenaPod main ability"
     },
     {
       "name": "EntryAbility_label",
-      "value": "AntennaPod"
+      "value": "HomenaPod"
     },
     {
       "name": "skeleton_hint",
@@ -414,15 +414,15 @@ struct Index {
   "string": [
     {
       "name": "module_desc",
-      "value": "AntennaPod 入口模块"
+      "value": "HomenaPod 入口模块"
     },
     {
       "name": "EntryAbility_desc",
-      "value": "AntennaPod 主程序"
+      "value": "HomenaPod 主程序"
     },
     {
       "name": "EntryAbility_label",
-      "value": "AntennaPod"
+      "value": "HomenaPod"
     },
     {
       "name": "skeleton_hint",

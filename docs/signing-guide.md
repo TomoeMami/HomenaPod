@@ -16,13 +16,13 @@ DevEco Studio 菜单：`File > Project Structure > Signing Configs`，勾选 `Au
         "name": "release",
         "type": "HarmonyOS",
         "material": {
-          "certpath": "./sign/antennapod-release.cer",
+          "certpath": "./sign/homenapod-release.cer",
           "storePassword": "****",
-          "keyAlias": "antennapod",
+          "keyAlias": "homenapod",
           "keyPassword": "****",
-          "profile": "./sign/antennapod-release.p7b",
+          "profile": "./sign/homenapod-release.p7b",
           "signAlg": "SHA256withECDSA",
-          "storeFile": "./sign/antennapod-release.p12"
+          "storeFile": "./sign/homenapod-release.p12"
         }
       }
     ],
@@ -49,9 +49,9 @@ hvigorw assembleHap --mode module -p product=default -p buildMode=release --no-d
 
 ## 4. 上架前检查
 
-- [ ] bundleName 改为实际持有域名（如 `org.antennapod.harmony`）
+- [x] bundleName 已定：`com.homenapod.app`（2026-09-10 随产品改名 HomenaPod 调整；如改用自有域名反写，需同步 `AppScope/app.json5` 与签名 Profile——改名后旧 Profile 不再匹配，需重新生成）
 - [ ] versionCode/versionName 正确
 - [ ] `ohos.permission.INTERNET`、`ohos.permission.KEEP_BACKGROUND_RUNNING` 用途说明
 - [ ] 隐私政策、用户协议
 - [ ] 图标 1024×1024、截图
-- [ ] 开源许可：GPL-3.0 与 AntennaPod 来源声明
+- [x] 开源许可：GPL-3.0 与 AntennaPod 来源声明（见 `antennapod-harmony/NOTICE.md`）

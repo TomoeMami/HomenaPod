@@ -6,7 +6,7 @@ cd "$ROOT"
 
 if ! command -v hvigorw >/dev/null 2>&1; then
   echo "ERROR: hvigorw not found. 请安装 DevEco Command Line Tools 并设置 DEVECO_SDK_HOME。"
-  echo "参考: docs/toolchain-blocker.md"
+  echo "参考: https://developer.huawei.com/consumer/cn/download/command-line-tools-for-hmos"
   exit 1
 fi
 

@@ -5,7 +5,7 @@
 
 ## 1. 数据库元信息
 
-- 库名：`Antennapod.db`
+- 库名：`Homenapod.db`（2026-09-10 随产品改名 HomenaPod 调整；旧 `Homennapod.db` / `Antennapod.db` 不迁移）
 - 引擎：SQLite（`@ohos.data.relationalStore`）
 - 版本：`1`（MVP 从 1 开始；未来导入 AntennaPod 安卓库时做专用迁移器）
 - 存储配置：`securityLevel: relationalStore.SecurityLevel.S1`

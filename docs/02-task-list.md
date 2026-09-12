@@ -1,5 +1,8 @@
 # 02 · 顺序任务清单（执行主清单）
 
+> **说明**：清单中的产物 `docs/progress-log.md`、`docs/e2e-report.md`、`antennapod-harmony/CHANGELOG.md`
+> 等属于执行流水，**仅保留在本地工作区，不随公开仓库发布**。
+>
 > 使用方式：**严格从上到下逐项执行**。每项完成后在 `docs/progress-log.md` 记录 `[x]` 与验证证据；受阻则记 `[ ]` + 原因，跳到下一个无前置依赖的任务。
 >
 > “验证”栏分两类：
@@ -97,7 +100,7 @@
   - `entry/src/main/ets/db/repositories/{FeedRepository,EpisodeRepository,QueueRepository,DownloadLogRepository}.ets`
 - **步骤**：
   1. 先读 PodDBAdapter 的建表段，与 docs/04 核对列名/类型/默认值。
-  2. 实现 `DbManager.init(context)`：`relationalStore.getRdbStore(context, {name:'Antennapod.db', securityLevel: S1})`，version=1 时执行 DDL；version>1 走 `DbMigrator`（MVP 只留空结构）。
+  2. 实现 `DbManager.init(context)`：`relationalStore.getRdbStore(context, {name:'Homennapod.db', securityLevel: S1})`，version=1 时执行 DDL；version>1 走 `DbMigrator`（MVP 只留空结构）。
   3. 实现泛型 `queryAll/insert/update/delete` + 事务（`beginTransaction/commit/rollBack`）。
   4. 按 DBReader/DBWriter 的查询语义实现 Repository 的方法清单（见 DoD）。
   5. Feed 的隐藏/排序/筛选字段原样保留，MVP 页面可暂不使用。
@@ -138,7 +141,7 @@
   1. 用 `@ohos.net.http.createHttp()` 实现 `get(url, options)` / `head(url)`。
   2. options 支持：`headers`（含 Authorization/Range/If-Modified-Since）、`timeoutMs`、`maxRedirects`（默认 5，手动跟随 301/302，循环重定向报错）。
   3. 响应模型：`{status: number, headers: Record<string,string>, body: string, bodyBytes: ArrayBuffer}`；GZIP 由系统处理。
-  4. 默认 UA：`AntennaPod/3.12.1 (HarmonyOS NEXT)`；错误分类 `TIMEOUT/NETWORK/HTTP_4XX/HTTP_5XX/REDIRECT_LOOP/PARSE`。
+  4. 默认 UA：`HomennaPodcast/1.0.0 (HarmonyOS NEXT)`；错误分类 `TIMEOUT/NETWORK/HTTP_4XX/HTTP_5XX/REDIRECT_LOOP/PARSE`。
 - **DoD**：head/get 齐全；重定向与错误分类有单元测试占位（hvigor 可用时跑）；无 OkHttp 依赖。
 - **验证**：静态；真机冒烟在 T3.3 覆盖
 
@@ -225,7 +228,7 @@
 - **参考**：`playback/service/src/main/java/de/danoeh/antennapod/playback/service/internal/MediaLibrarySessionCallback.java`、`PlaybackServiceNotificationBuilder.java`（控件语义）
 - **产出**：`player/AvSessionBridge.ets`
 - **步骤**：
-  1. `avSession.createAVSession(context, 'AntennaPod', 'audio')` → `activate()`。
+  1. `avSession.createAVSession(context, 'Homenna Podcast', 'audio')` → `activate()`。
   2. `setAVMetaData`：assetId=episode id、title=单集标题、artist=节目名、专辑封面用 `image.createPixelMap`（缓存目录取图，失败用占位图）。
   3. `setAVPlaybackState`：state 映射（play/pause/stop/completed）、position、speed、循环模式。
   4. `setAVQueueItems`：当前队列前 20 项。

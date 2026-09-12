@@ -20,3 +20,28 @@ local.properties
 *.tmp
 *.log
 /remote/
+
+# 会话临时文件（抓取脚本/截图/探测）
+.cache/
+.dsh-hdc/
+.dsh-out/
+.dsh-hvigor-tmp/
+**/.dsh-hvigor-tmp/
+
+# 个人订阅清单（OPML 导入/导出），含真实订阅列表，勿提交
+/*.opml
+**/*.opml
+
+# 逐轮工作流水（本地保留，不随公开仓库发布）：状态快照、执行日志、上机取证记录
+/STATUS.md
+/docs/progress-log.md
+/docs/emulator-e2e-session.md
+/docs/device-test-report.md
+/docs/e2e-report.md
+/docs/quality-audit.md
+/docs/toolchain-blocker.md
+/docs/feature-gap.md
+/docs/feature-matrix.md
+/docs/HANDOFF.md
+/docs/feature-diff/05-fix-verification.md
+/antennapod-harmony/CHANGELOG.md
