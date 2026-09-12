@@ -1,6 +1,6 @@
 # Reference layout spec — QUEUE screen & EPISODE LIST / FEED DETAIL (AntennaPod Android)
 
-Source: read-only inspection of `D:\Git\antennapod-harmony\antenna-repo` (shallow clone).
+Source: read-only inspection of `antenna-repo/` (shallow clone).
 All numbers are Android layout units: **dp** for dimensions, **sp** for text, exactly as written in the XML
 unless explicitly marked "computed". Nothing here is HarmonyOS code; this is the Android ground truth.
 

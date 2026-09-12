@@ -21,7 +21,7 @@
 - **产出**：`antennapod-harmony/`（空目录）、`docs/progress-log.md`
 - **步骤**：
   1. 创建 `antennapod-harmony/` 与 `docs/`（如不存在）。
-  2. 创建 `docs/progress-log.md`，写入表头：`# 进度日志`、环境信息（node -v、java -version、`which ohpm hvigorw` 的结果、代理可用性测试 `curl -x http://127.0.0.1:7893 -sI https://github.com` 的状态码）。
+  2. 创建 `docs/progress-log.md`，写入表头：`# 进度日志`、环境信息（node -v、java -version、`which ohpm hvigorw` 的结果、外网可达性测试 `curl -sI https://github.com` 的状态码）。
   3. 记录参考仓库快照：`antenna-repo` 的 commit 与分支（`git -C antenna-repo log -1 --format='%H %s'`）。
 - **DoD**：目录与日志存在；日志含上述 3 项事实。
 - **验证**：静态

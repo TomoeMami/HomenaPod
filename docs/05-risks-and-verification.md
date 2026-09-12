@@ -97,9 +97,8 @@
 | file picker（OPML 导入导出） | https://raw.githubusercontent.com/openharmony/docs/master/en/application-dev/reference/apis-core-file-kit/js-apis-file-picker.md |
 | 命令行构建 FAQ | https://developer.huawei.com/consumer/cn/doc/doccenter-tools-faq/faqs-command-line-tool-35 |
 
-> 抓取官方文档时代理设置：
+> 抓取官方文档：
 > ```bash
-> export http_proxy=http://127.0.0.1:7893 https_proxy=http://127.0.0.1:7893
 > curl -sS <url>
 > ```
 

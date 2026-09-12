@@ -1,7 +1,7 @@
 # 03 · 下载与自动化域 — 上游 vs 鸿蒙移植版逐项对比
 
 **基准**
-- 上游：`D:\Git\antennapod-harmony\antenna-repo`（sparse-checkout 仅含 `app/src/main`、`ui/`、`storage/preferences`）。
+- 上游：`antenna-repo/`（sparse-checkout 仅含 `app/src/main`、`ui/`、`storage/preferences`）。
   `net:download:*`、`storage:database`、`storage:importexport`、`storage:database-maintenance-service`、`system`、`event`、`model`、`parser:feed`、`playback:*` **未检出**。
   凡涉及 `DownloadService` / `EpisodeDownloadWorker` / `DBWriter` / `AutomaticDownloadAlgorithm` / `DatabaseExporter` / `OpmlBackupAgent` / `FeedMedia` / `FeedFilter` / `MimeTypeUtils` 的结论，均为**依据 UI/偏好调用点推断**（表中逐条标注）。
 - 移植版：`antennapod-harmony\entry\src\main\ets`。

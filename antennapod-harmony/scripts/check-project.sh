@@ -6,12 +6,15 @@ HARMONY="$ROOT/antennapod-harmony"
 ETS="$HARMONY/entry/src/main/ets"
 RES="$HARMONY/entry/src/main/resources"
 
-# 1. 路径一致性：确认不存在路径笔误产生的副本目录
-if [ -d /home/riko/homenpodcast ]; then
-  echo "FAIL: 发现路径笔误副本 /home/riko/homenpodcast，请清理" >&2
-  exit 1
-fi
-echo "OK 路径一致性"
+# 1. 目录结构：关键目录必须在（路径一律按脚本自身位置推导，换机器/换目录都能跑）
+for d in "$ETS" "$RES/base/element" "$RES/zh_CN/element" "$RES/en_US/element" \
+         "$HARMONY/entry/src/main/resources/base/profile"; do
+  if [ ! -d "$d" ]; then
+    echo "FAIL: 缺少目录 $d" >&2
+    exit 1
+  fi
+done
+echo "OK 目录结构"
 
 # 2. 导入路径检查
 python3 - "$ETS" <<'PY'

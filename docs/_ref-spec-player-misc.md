@@ -4,7 +4,7 @@
 the PLAYER screen and the secondary screens listed below, so a HarmonyOS ArkTS developer can replicate
 the visual layout exactly. This document records **Android facts only** — it proposes no ArkTS code.
 
-**Source.** Upstream AntennaPod Android checkout at `D:\Git\antennapod-harmony\antenna-repo`
+**Source.** Upstream AntennaPod Android checkout at `antenna-repo/`
 (shallow clone, **read-only**; nothing under it was modified). Every numeric claim carries a
 `file:line` reference relative to that directory.
 
@@ -564,7 +564,7 @@ Spacing dimens (`ui/common/src/main/res/values/dimens.xml`):
 
 ## B.1 / B.2 — ADD FEED and SEARCH
 
-Source of truth: upstream AntennaPod Android repo at `D:\Git\antennapod-harmony\antenna-repo` (read-only).
+Source of truth: upstream AntennaPod Android repo at `antenna-repo/` (read-only).
 Every numeric claim carries a `file:line` reference. Units are `dp`/`sp` exactly as written in the resource.
 Anything not present in the code is called out explicitly under §15 "Non-existent / explicit negatives".
 
@@ -1654,7 +1654,7 @@ Exceptions: `ic_error` (24dp, two-path red/background vector, `ic_error.xml:6-11
 
 ## B.4 — STATISTICS and OPML import/export
 
-Read-only analysis of `D:\Git\antennapod-harmony\antenna-repo`.
+Read-only analysis of `antenna-repo/`.
 
 Source of truth (upstream, read-only): `ui/statistics/src/main/res/layout/*.xml` (9 files),
 `ui/statistics/src/main/res/menu/statistics.xml`, `ui/statistics/src/main/java/de/danoeh/antennapod/ui/statistics/**`
@@ -2111,7 +2111,7 @@ Both items are overflow-only (`showAsAction="never"`); **no icons are declared**
 
 ## B.5 — SETTINGS / STORAGE preference screens + design tokens
 
-Upstream source of truth: `D:\Git\antennapod-harmony\antenna-repo` (read-only), commit `d05a58b47643592e968e9d1ed55736cc822ac8f2` (2026-09-09, "Fix 3 tiny usability problems (#8727)").
+Upstream source of truth: `antenna-repo/` (read-only), commit `d05a58b47643592e968e9d1ed55736cc822ac8f2` (2026-09-09, "Fix 3 tiny usability problems (#8727)").
 
 All paths below are relative to `antenna-repo/`. Every claim carries `file:line`.
 All `@string/...` values were resolved against `ui/i18n/src/main/res/values/strings.xml` (the only English strings file — `antenna-repo/AGENTS.md`).

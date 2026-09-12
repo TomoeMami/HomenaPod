@@ -2,7 +2,7 @@
 
 - 制定日期：2026-09-09（第 27 轮）
 - 上游基线：`AntennaPod/AntennaPod` 分支 `develop`，`app/build.gradle` `versionName "3.12.1"` / `versionCode 3120195`
-- 本地克隆：`D:\Git\antennapod-harmony\antenna-repo`（`git clone --depth 1 --filter=blob:none`，sparse-checkout `app/src/main`、`ui`、`storage/preferences`；已在 `.gitignore` 中忽略）
+- 本地克隆：`antenna-repo/`（`git clone --depth 1 --filter=blob:none`，sparse-checkout `app/src/main`、`ui`、`storage/preferences`；已在 `.gitignore` 中忽略）
 - 对齐原则：**控件保持鸿蒙原生风味**（`SymbolGlyph`、`Text`、`List`、`Grid`、`Toggle`、`Menu`、`Refresh` 等），
   **几何与层级尽量与上游一致**（高度、间距、圆角、封面尺寸、区块顺序、操作位次）。
 - **对齐目标是"相对布局"，不是 1:1 复刻**（用户明确要求）：对齐**结构、顺序、层级、操作位次**；

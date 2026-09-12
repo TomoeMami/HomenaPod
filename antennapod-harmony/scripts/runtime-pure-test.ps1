@@ -6,10 +6,27 @@ $root = Split-Path -Parent (Split-Path -Parent $PSCommandPath)
 $src = Join-Path $root 'entry/src/main/ets'
 $work = Join-Path $root '.dsh-hvigor-tmp/pure-test'
 $out = Join-Path $work 'out'
-$tsc = 'D:\Apps\DevEco Studio\tools\hvigor\hvigor\node_modules\typescript\bin\tsc'
-$node = 'D:\Apps\DevEco Studio\tools\node\node.exe'
+# 依赖 tsc 与 node：优先用 DEVECO_TSC / DEVECO_NODE 显式指定，
+# 其次在 DEVECO_HOME（DevEco Studio 安装目录）下按相对路径查找，最后回退到 PATH。
+function Find-Tool([string]$explicit, [string]$relative, [string]$fallbackCmd) {
+  if ($explicit -and (Test-Path $explicit)) { return $explicit }
+  if ($env:DEVECO_HOME) {
+    $candidate = Join-Path $env:DEVECO_HOME $relative
+    if (Test-Path $candidate) { return $candidate }
+  }
+  $cmd = Get-Command $fallbackCmd -ErrorAction SilentlyContinue
+  if ($cmd) { return $cmd.Source }
+  return $null
+}
+$tsc = Find-Tool $env:DEVECO_TSC 'tools\hvigor\hvigor\node_modules\typescript\bin\tsc' 'tsc'
+$node = Find-Tool $env:DEVECO_NODE 'tools\node\node.exe' 'node'
 
-if (-not (Test-Path $tsc)) { throw "tsc not found: $tsc" }
+if (-not $tsc) {
+  throw "找不到 tsc。请设置 DEVECO_HOME 指向 DevEco Studio 安装目录，或设置 DEVECO_TSC 指向 typescript/bin/tsc。"
+}
+if (-not $node) {
+  throw "找不到 node。请安装 Node.js，或设置 DEVECO_NODE 指向 node 可执行文件。"
+}
 if (Test-Path $work) { Remove-Item $work -Recurse -Force }
 New-Item -ItemType Directory -Path (Join-Path $work 'model'), (Join-Path $work 'utils'), (Join-Path $work 'parser') -Force | Out-Null
 

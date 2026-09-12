@@ -44,11 +44,7 @@
    `- [x] T1.5 HttpClient 封装 · 完成时间 · 验证证据（测试/构建结果摘要）`
    未完成或受阻时记录 `- [ ] T1.6 ... 受阻原因` 并继续做下一个**无前置依赖**的任务，不阻塞整体进度。
 2. **参考仓库只读**：`antenna-repo` 是参考实现。动手前先 `read` 任务中列出的参考文件；禁止 `cd antenna-repo` 后修改任何文件。
-3. **代理**：本机所有外网访问需要代理。执行 git / curl / ohpm / npm 等命令前：
-   ```bash
-   export http_proxy=http://127.0.0.1:7893 https_proxy=http://127.0.0.1:7893
-   ```
-   如果代理不通，在 `progress-log.md` 记录，并改用本地已克隆的 `antenna-repo`（不依赖网络）。
+3. **网络与离线**：需要抓取官方文档或依赖时，确保外网可达；离线时改用本地已克隆的 `antenna-repo`（不依赖网络）。
 4. **构建现实**：本机已确认有 Node v24 与 JDK 21，但**没有** `ohpm` / `hvigorw` / DevEco SDK。因此：
    - 代码按 HarmonyOS NEXT API 12 规范编写；
    - 若执行环境中仍无 hvigor，则每个任务的验证方式为**静态自检**（对照本计划的 API 清单 + 官方文档链接），并在验收栏注明 `build: deferred`；
@@ -59,7 +55,7 @@
    - 新增用户可见字符串一律放 `resources/base/element/string.json`，并同步 `en_US` 与 `zh_CN`。
    - 目录、命名、分层严格遵守 `docs/01-architecture.md` §2。
    - 注释写清“移植自哪个参考类”（如 `Port of: model/Feed.java`），便于回溯。
-6. **官方 API 依据**：写任何 `@ohos.*` 调用前，先查 `docs/05-risks-and-verification.md` 附录里的官方文档链接；链接失效时用代理抓取 `openharmony/docs` master 分支对应文档，不要把记忆中的 API 当事实。
+6. **官方 API 依据**：写任何 `@ohos.*` 调用前，先查 `docs/05-risks-and-verification.md` 附录里的官方文档链接；链接失效时抓取 `openharmony/docs` master 分支对应文档，不要把记忆中的 API 当事实。
 7. **不允许的捷径**：不做“把 APK 塞进鸿蒙”的兼容方案；不引入未经 ohpm 验证的第三方库（计划列出的除外）；不跳过 DoD。
 
 ## 4. 范围定义

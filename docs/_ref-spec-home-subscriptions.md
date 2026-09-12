@@ -1,6 +1,6 @@
 # AntennaPod Android layout reference spec — HOME + SUBSCRIPTIONS
 
-Source: read-only shallow clone at `D:\Git\antennapod-harmony\antenna-repo`, `app/build.gradle` `versionName "3.12.1"` / `versionCode 3120195`.
+Source: read-only shallow clone at `antenna-repo/`, `app/build.gradle` `versionName "3.12.1"` / `versionCode 3120195`.
 Every number below is taken from the files listed at the end. Values marked **(M3 lib)** come from the Material Components library default style (not defined inside this repo) and are approximate visual metrics; everything else is explicit in-repo.
 
 Units: `dp` / `sp` as written in the sources. `1px` = 1 physical pixel (used deliberately in a few CardView insets).

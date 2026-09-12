@@ -7,7 +7,8 @@ echo "== Java =="; java -version 2>&1 | head -1 || echo "missing"
 echo "== ohpm =="; command -v ohpm || echo "missing"
 echo "== hvigorw =="; command -v hvigorw || echo "missing"
 echo "== DEVECO_SDK_HOME =="; echo "${DEVECO_SDK_HOME:-<unset>}"
-echo "== 正确工作区 =="; ls -d /home/riko/homennapodcast 2>/dev/null || echo "missing"
-echo "== 误路径残留 =="; ls -d /home/riko/homenpodcast 2>/dev/null || echo "none"
-echo "== 工程文件数 =="; find /home/riko/homennapodcast/antennapod-harmony -type f 2>/dev/null | wc -l
-echo "== check-project =="; bash /home/riko/homennapodcast/antennapod-harmony/scripts/check-project.sh >/tmp/ap-cc.log 2>&1 && tail -1 /tmp/ap-cc.log || echo "FAILED"
+ROOT="$(cd "$(dirname "$0")/../.." && pwd)"
+HARMONY="$ROOT/antennapod-harmony"
+echo "== 工作区根 =="; echo "$ROOT"
+echo "== 工程文件数（不含 build/ 与依赖）=="; find "$HARMONY" -type f -not -path '*/build/*' -not -path '*/oh_modules/*' 2>/dev/null | wc -l
+echo "== check-project =="; bash "$HARMONY/scripts/check-project.sh" >/tmp/ap-cc.log 2>&1 && tail -1 /tmp/ap-cc.log || echo "FAILED"
