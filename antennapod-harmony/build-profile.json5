@@ -1,41 +1,63 @@
 {
-  "app": {
-    "signingConfigs": [],
-    "products": [
+  app: {
+    // 签名配置：**请勿提交真实口令与证书路径**。
+    // DevEco Studio「File > Project Structure > Signing Configs」勾选
+    // 「Automatically generate signature」后，会自动把 keyPassword / storePassword 明文
+    // 与 C:\Users\<你>\.ohos\config\<...>.{cer,p7b,p12} 绝对路径回填进本段 —— 提交前务必清空。
+    // 保持 signingConfigs: [] 时构建产物为未签名 HAP（模拟器可直接安装）。
+    // 手动配置 release 签名时取消下面模板的注释并替换占位符，步骤见 docs/signing-guide.md。
+    //
+    // signingConfigs: [
+    //   {
+    //     name: 'default',
+    //     type: 'HarmonyOS',
+    //     material: {
+    //       certpath: '<SIGNING_DIR>/<CERT_NAME>.cer',
+    //       keyAlias: '<KEY_ALIAS>',
+    //       keyPassword: '<KEY_PASSWORD>',
+    //       profile: '<SIGNING_DIR>/<PROFILE_NAME>.p7b',
+    //       signAlg: 'SHA256withECDSA',
+    //       storeFile: '<SIGNING_DIR>/<STORE_NAME>.p12',
+    //       storePassword: '<STORE_PASSWORD>',
+    //     },
+    //   },
+    // ],
+    signingConfigs: [],
+    products: [
       {
-        "name": "default",
-        "signingConfig": "default",
-        "compatibleSdkVersion": "5.0.0(12)",
-        "runtimeOS": "HarmonyOS",
-        "buildOption": {
-          "strictMode": {
-            "caseSensitiveCheck": true,
-            "useNormalizedOHMUrl": true
-          }
-        }
-      }
+        name: 'default',
+        signingConfig: 'default',
+        compatibleSdkVersion: '5.0.0(12)',
+        runtimeOS: 'HarmonyOS',
+        buildOption: {
+          strictMode: {
+            caseSensitiveCheck: true,
+            useNormalizedOHMUrl: true,
+          },
+        },
+      },
     ],
-    "buildModeSet": [
+    buildModeSet: [
       {
-        "name": "debug"
+        name: 'debug',
       },
       {
-        "name": "release"
-      }
-    ]
+        name: 'release',
+      },
+    ],
   },
-  "modules": [
+  modules: [
     {
-      "name": "entry",
-      "srcPath": "./entry",
-      "targets": [
+      name: 'entry',
+      srcPath: './entry',
+      targets: [
         {
-          "name": "default",
-          "applyToProducts": [
-            "default"
-          ]
-        }
-      ]
-    }
-  ]
+          name: 'default',
+          applyToProducts: [
+            'default',
+          ],
+        },
+      ],
+    },
+  ],
 }
