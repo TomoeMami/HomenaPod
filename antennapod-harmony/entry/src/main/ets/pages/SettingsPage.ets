@@ -66,6 +66,12 @@ export struct SettingsPage {
   @State timeRespectsSpeed: boolean = true;
   /** 滑动动作设置弹层开关（上游 SwipeActionsDialog） */
   @State showSwipeSheet: boolean = false;
+  /** 耳机/蓝牙断开时自动暂停（上游 prefPauseOnHeadsetDisconnect，默认开） */
+  @State pauseOnDisconnect: boolean = true;
+  /** 耳机重新接入时恢复播放（上游 prefUnpauseOnHeadsetReconnect，默认开） */
+  @State unpauseOnHeadsetReconnect: boolean = true;
+  /** 蓝牙重新接入时恢复播放（上游 prefUnpauseOnBluetoothReconnect，默认关） */
+  @State unpauseOnBluetoothReconnect: boolean = false;
   /** 弹层当前选中的屏幕（SwipeScreen.*） */
   @State swipeScreen: string = SwipeScreen.QUEUE;
   /** 该屏幕是否启用滑动动作（上游 KEY_PREFIX_NO_ACTION） */
@@ -164,6 +170,39 @@ export struct SettingsPage {
                   UserPreferences.setTimeRespectsSpeed(isOn);
                   this.notifyPrefsChanged();
                 })
+            }
+            .width('100%')
+          }
+
+          // ── Interruptions（上游 preferences_playback.xml 的 interruptions 分类）──
+          //
+          // 耳机拔出 / 蓝牙断开时暂停播放：鸿蒙不会代应用暂停，靠 AVPlayer 的
+          // audioOutputDeviceChangeWithInfo（REASON_OLD_DEVICE_UNAVAILABLE）由应用自己处理，
+          // 判定逻辑在 OutputDevicePolicy / PlayerManager.handleOutputDeviceChange。
+          this.categoryTitle($r('app.string.settings_category_interruptions'))
+          RowCard({ pad: 0, radius: DesignTokens.RADIUS_ROW }) {
+            Column() {
+              this.switchRow($r('sys.symbol.headphones'), $r('app.string.setting_pause_on_disconnect'),
+                this.pauseOnDisconnect, (isOn: boolean) => {
+                  this.pauseOnDisconnect = isOn;
+                  UserPreferences.setPauseOnHeadsetDisconnect(isOn);
+                })
+              // 上游用 android:dependency 把两条「重连恢复」挂在「断开暂停」之下：
+              // 断开都不暂停了，恢复自然无从谈起，直接隐藏（值仍保留）
+              if (this.pauseOnDisconnect) {
+                this.rowDivider()
+                this.switchRow($r('sys.symbol.earphone'), $r('app.string.setting_unpause_on_headset_reconnect'),
+                  this.unpauseOnHeadsetReconnect, (isOn: boolean) => {
+                    this.unpauseOnHeadsetReconnect = isOn;
+                    UserPreferences.setUnpauseOnHeadsetReconnect(isOn);
+                  })
+                this.rowDivider()
+                this.switchRow($r('sys.symbol.bluetooth'), $r('app.string.setting_unpause_on_bluetooth_reconnect'),
+                  this.unpauseOnBluetoothReconnect, (isOn: boolean) => {
+                    this.unpauseOnBluetoothReconnect = isOn;
+                    UserPreferences.setUnpauseOnBluetoothReconnect(isOn);
+                  })
+              }
             }
             .width('100%')
           }
@@ -887,6 +926,9 @@ export struct SettingsPage {
     this.downloadsSortOrder = UserPreferences.getDownloadsSortedOrder() as SortOrder;
     this.showRemainingTime = UserPreferences.getShowRemainingTime();
     this.timeRespectsSpeed = UserPreferences.getTimeRespectsSpeed();
+    this.pauseOnDisconnect = UserPreferences.isPauseOnHeadsetDisconnect();
+    this.unpauseOnHeadsetReconnect = UserPreferences.isUnpauseOnHeadsetReconnect();
+    this.unpauseOnBluetoothReconnect = UserPreferences.isUnpauseOnBluetoothReconnect();
   }
 
   /** 下载排序当前值文案（与订阅详情页的排序文案一致） */

@@ -389,6 +389,41 @@ export class UserPreferences {
     UserPreferences.getPrefs().flush();
   }
 
+  // ── 耳机 / 蓝牙断开（对照上游 preferences_playback.xml 的 interruptions 分类）──
+
+  /**
+   * 耳机或蓝牙设备断开时自动暂停播放；上游 `prefPauseOnHeadsetDisconnect` 默认 **true**
+   * （Android 侧由 Media3 的 `handleAudioBecomingNoisy` 承担，鸿蒙侧由 OutputDeviceGuard 承担）。
+   */
+  static isPauseOnHeadsetDisconnect(): boolean {
+    return UserPreferences.getPrefs().getSync('prefPauseOnHeadsetDisconnect', true) as boolean;
+  }
+
+  static setPauseOnHeadsetDisconnect(value: boolean): void {
+    UserPreferences.getPrefs().putSync('prefPauseOnHeadsetDisconnect', value);
+    UserPreferences.getPrefs().flush();
+  }
+
+  /** 有线耳机/耳麦重新接入时恢复播放；上游 `prefUnpauseOnHeadsetReconnect` 默认 **true** */
+  static isUnpauseOnHeadsetReconnect(): boolean {
+    return UserPreferences.getPrefs().getSync('prefUnpauseOnHeadsetReconnect', true) as boolean;
+  }
+
+  static setUnpauseOnHeadsetReconnect(value: boolean): void {
+    UserPreferences.getPrefs().putSync('prefUnpauseOnHeadsetReconnect', value);
+    UserPreferences.getPrefs().flush();
+  }
+
+  /** 蓝牙设备重新接入时恢复播放；上游 `prefUnpauseOnBluetoothReconnect` 默认 **false** */
+  static isUnpauseOnBluetoothReconnect(): boolean {
+    return UserPreferences.getPrefs().getSync('prefUnpauseOnBluetoothReconnect', false) as boolean;
+  }
+
+  static setUnpauseOnBluetoothReconnect(value: boolean): void {
+    UserPreferences.getPrefs().putSync('prefUnpauseOnBluetoothReconnect', value);
+    UserPreferences.getPrefs().flush();
+  }
+
   static getSleepTimerMinutes(): number {
     return UserPreferences.getPrefs().getSync('prefSleepTimerMinutes', 15) as number;
   }

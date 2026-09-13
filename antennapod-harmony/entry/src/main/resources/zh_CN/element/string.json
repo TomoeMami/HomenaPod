@@ -1507,6 +1507,22 @@
     {
       "name": "playback_speed_global",
       "value": "跟随全局"
+    },
+    {
+      "name": "settings_category_interruptions",
+      "value": "中断"
+    },
+    {
+      "name": "setting_pause_on_disconnect",
+      "value": "耳机或蓝牙断开时暂停"
+    },
+    {
+      "name": "setting_unpause_on_headset_reconnect",
+      "value": "耳机重连时恢复播放"
+    },
+    {
+      "name": "setting_unpause_on_bluetooth_reconnect",
+      "value": "蓝牙重连时恢复播放"
     }
   ]
 }

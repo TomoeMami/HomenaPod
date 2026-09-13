@@ -6,6 +6,7 @@ import { Playable } from '../model/Playable';
 import { UserPreferences } from '../prefs/UserPreferences';
 import { Logger } from '../utils/Logger';
 import { BackgroundPlaybackGuard } from './BackgroundPlaybackGuard';
+import { DeviceClasses, DeviceChangeReasons, OutputDevicePolicy } from './OutputDevicePolicy';
 import { EventHub, EventType, PlaybackPositionData, PlayerErrorData, SpeedChangedData, PlayerStatusData, PlayerTrackData } from '../events/EventHub';
 
 const TAG: string = 'PlayerManager';
@@ -26,6 +27,18 @@ const REWIND_MINUTE_MS: number = 60 * 1000;
 const REWIND_HOUR_MS: number = 60 * 60 * 1000;
 const REWIND_DAY_MS: number = 24 * 60 * 60 * 1000;
 
+/**
+ * 最近一次「系统侧」暂停的原因。它决定**什么事件**可以把播放重新拉起来：
+ * 只有音频焦点恢复走 prefAutoResumeAfterInterrupt，只有设备重连走
+ * prefUnpauseOnHeadsetReconnect / prefUnpauseOnBluetoothReconnect；
+ * 用户手动暂停（含睡眠定时器、播控中心暂停）不在此列。
+ */
+const PAUSE_CAUSE_NONE: string = 'NONE';
+/** 音频焦点被抢占（来电 / 其它应用开始播放） */
+const PAUSE_CAUSE_INTERRUPT: string = 'INTERRUPT';
+/** 输出设备丢失（耳机拔出 / 蓝牙断开 / 佩戴检测摘下） */
+const PAUSE_CAUSE_DEVICE: string = 'DEVICE';
+
 export class PlayerManager {
   private static player: media.AVPlayer | undefined = undefined;
   private static current: Playable | undefined = undefined;
@@ -34,7 +47,15 @@ export class PlayerManager {
   private static volume: number = 1.0;
   private static pausedAt: number = 0;
   private static skipEndingFired: boolean = false;
-  private static interruptPaused: boolean = false;
+  /**
+   * 播放意图（对照 ExoPlayer 的 playWhenReady）：true = 用户本意是在播放。
+   *
+   * 耳机拔出时**底层可能已经自行停顿**（状态先变成 paused，`stateChange` 早于设备变更回调到达），
+   * 只看 `status` 就会把「本该恢复」误判成「用户自己停的」，所以意图单独记一份。
+   */
+  private static playIntent: boolean = false;
+  /** 最近一次系统侧暂停的原因（PAUSE_CAUSE_*） */
+  private static pauseCause: string = PAUSE_CAUSE_NONE;
   /** 本地文件播放时保持打开的 fd（AVPlayer 走 fdSrc，播放期间不能关闭） */
   private static localFile: fs.File | undefined = undefined;
 
@@ -59,6 +80,10 @@ export class PlayerManager {
     (info: audio.InterruptEvent): void => {
       PlayerManager.handleAudioInterrupt(info);
     };
+  private static boundOutputDeviceChange: (info: audio.AudioStreamDeviceChangeInfo) => void =
+    (info: audio.AudioStreamDeviceChangeInfo): void => {
+      PlayerManager.handleOutputDeviceChange(info);
+    };
 
   static async load(playable: Playable, startPosition: number, autoplay: boolean): Promise<void> {
     await PlayerManager.release();
@@ -66,7 +91,8 @@ export class PlayerManager {
     PlayerManager.status = PlayerStatus.INITIALIZING;
     PlayerManager.skipEndingFired = false;
     PlayerManager.pausedAt = 0;
-    PlayerManager.interruptPaused = false;
+    PlayerManager.playIntent = false;
+    PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
     // 通知播控中心换集（AVSession 元数据必须在 prepare 前就更新，否则通知栏卡片还是上一集）
     const trackData: PlayerTrackData = { assetId: playable.id };
     EventHub.publish(EventType.PLAYER_TRACK_CHANGED, trackData);
@@ -75,6 +101,9 @@ export class PlayerManager {
     player.on('timeUpdate', PlayerManager.boundTimeUpdate);
     player.on('error', PlayerManager.boundError);
     player.on('audioInterrupt', PlayerManager.boundInterrupt);
+    // 输出设备变更（耳机拔出 / 蓝牙断开 / 重新接入）：官方指引要求
+    // REASON_OLD_DEVICE_UNAVAILABLE 时由应用自己暂停 —— 见 OutputDevicePolicy 注释
+    player.on('audioOutputDeviceChangeWithInfo', PlayerManager.boundOutputDeviceChange);
     if (playable.localFileUrl !== '') {
       // 已下载：AVPlayer 只接受 fd:// 或网络地址（file:// 与裸路径都会报
       // "The input parameter is not fd:// or network address"），故走 fdSrc。
@@ -163,6 +192,9 @@ export class PlayerManager {
     const player: media.AVPlayer | undefined = PlayerManager.player;
     if (player !== undefined && (player.state === 'prepared' || player.state === 'paused' || player.state === 'completed')) {
       PlayerManager.applyAutoRewind();
+      // 主动播放：意图置真，并清掉上一次系统侧暂停的原因（用户接管了播放）
+      PlayerManager.playIntent = true;
+      PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
       await player.play();
       // 长时任务必须在真正开始播放后启动：否则后台/锁屏会被系统冻结
       PlayerManager.startBackgroundTask();
@@ -213,9 +245,37 @@ export class PlayerManager {
 
   static async pause(): Promise<void> {
     const player: media.AVPlayer | undefined = PlayerManager.player;
+    // 不管底层停没停，意图都要清掉：这是一次「用户/系统要求静音」的暂停
+    PlayerManager.playIntent = false;
     if (player !== undefined && player.state === 'playing') {
       PlayerManager.pausedAt = Date.now();
       await player.pause();
+    }
+  }
+
+  /**
+   * 设备丢失（耳机拔出 / 蓝牙断开）造成的停顿。
+   *
+   * 与 `pause()` 的区别：底层可能**已经**因设备下线自行停顿（这时 `player.pause()` 是空操作、
+   * `stateChange` 也不会再来），所以这里额外把应用侧状态与播控中心显式收敛成 PAUSED，
+   * 避免播放页 / 通知卡片停在「播放中」；同时保留 `pauseCause = DEVICE`，
+   * 让设备重新接入时能按偏好恢复。
+   */
+  private static async pauseForDeviceLoss(): Promise<void> {
+    PlayerManager.playIntent = false;
+    PlayerManager.pausedAt = Date.now();
+    const player: media.AVPlayer | undefined = PlayerManager.player;
+    if (player !== undefined && (player.state === 'playing' || player.state === 'prepared')) {
+      try {
+        await player.pause();
+      } catch (error) {
+        Logger.warn(TAG, 'pause on device loss failed: ' + (error as Error).message);
+      }
+    }
+    if (PlayerManager.status === PlayerStatus.PLAYING || PlayerManager.status === PlayerStatus.PREPARED) {
+      PlayerManager.status = PlayerStatus.PAUSED;
+      const statusData: PlayerStatusData = { status: PlayerManager.status };
+      EventHub.publish(EventType.PLAYER_STATUS, statusData);
     }
   }
 
@@ -328,6 +388,7 @@ export class PlayerManager {
       player.off('timeUpdate');
       player.off('error');
       player.off('audioInterrupt');
+      player.off('audioOutputDeviceChangeWithInfo');
       await player.release();
     }
     PlayerManager.player = undefined;
@@ -342,7 +403,8 @@ export class PlayerManager {
     }
     PlayerManager.status = PlayerStatus.IDLE;
     PlayerManager.skipEndingFired = false;
-    PlayerManager.interruptPaused = false;
+    PlayerManager.playIntent = false;
+    PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
     PlayerManager.stopBackgroundTask();
     const idleStatus: PlayerStatusData = { status: PlayerManager.status };
     EventHub.publish(EventType.PLAYER_STATUS, idleStatus);
@@ -372,19 +434,29 @@ export class PlayerManager {
   }
 
   /**
-   * 音频焦点中断（耳机/蓝牙断开、其他应用抢占）：
-   * 系统强制暂停时记录状态；恢复提示时按用户偏好自动继续播放。
+   * 音频焦点中断（来电、其他应用抢占、部分场景下的耳机断开）：
+   * 系统强制暂停时记录原因；恢复提示时按 prefAutoResumeAfterInterrupt 自动继续播放。
+   *
+   * 注意与 {@link handleOutputDeviceChange} 的配合：耳机断开时系统**可能同时**发这条 PAUSE
+   * 中断，而两个回调的先后顺序不保证。设备丢失已经把原因记成 DEVICE 时不再改写，
+   * 否则之后蓝牙重连会走 `INTERRUPT_HINT_RESUME` 这条「焦点恢复」路径，
+   * 绕过「蓝牙重连默认不恢复」的偏好（默认值见 UserPreferences.isUnpauseOnBluetoothReconnect）。
    */
   private static handleAudioInterrupt(info: audio.InterruptEvent): void {
     Logger.info(TAG, 'audioInterrupt hint=' + info.hintType + ' force=' + info.forceType);
     if (info.hintType === audio.InterruptHint.INTERRUPT_HINT_PAUSE
       || info.hintType === audio.InterruptHint.INTERRUPT_HINT_STOP) {
-      PlayerManager.interruptPaused = true;
+      // 只在「本来就在播」且不是设备丢失时，才记成一条「焦点恢复后可自动续播」的暂停：
+      // 用户自己按过暂停、或播放已结束时系统同样会发这条中断，此时不该在来电结束后把声音放出来
+      //（对照上游 PlaybackService：pausedBecauseOfFocusLoss 只在 isPlaying() 时置真）。
+      if (PlayerManager.playIntent && PlayerManager.pauseCause !== PAUSE_CAUSE_DEVICE) {
+        PlayerManager.pauseCause = PAUSE_CAUSE_INTERRUPT;
+      }
       PlayerManager.pausedAt = Date.now();
       PlayerManager.pause();
     } else if (info.hintType === audio.InterruptHint.INTERRUPT_HINT_RESUME) {
-      if (PlayerManager.interruptPaused && UserPreferences.getAutoResumeAfterInterrupt()) {
-        PlayerManager.interruptPaused = false;
+      if (PlayerManager.pauseCause === PAUSE_CAUSE_INTERRUPT && UserPreferences.getAutoResumeAfterInterrupt()) {
+        PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
         PlayerManager.play();
       }
     } else if (info.hintType === audio.InterruptHint.INTERRUPT_HINT_DUCK) {
@@ -393,6 +465,107 @@ export class PlayerManager {
       const playable: Playable | undefined = PlayerManager.current;
       PlayerManager.setVolume(playable !== undefined && playable.volumeAdaption > 0 ? playable.volumeAdaption : 1.0);
     }
+  }
+
+  /**
+   * 输出设备变更：**耳机拔出 / 蓝牙断开时自动暂停播放**的主路径。
+   *
+   * 为什么不能只靠 `audioInterrupt`：官方《响应输出设备变更时合理暂停》把设备下线的处理
+   * 交给应用自己 —— 系统只把「本音频流的输出设备变了、以及为什么变」通过
+   * `audioOutputDeviceChangeWithInfo` 交给应用，并不会代应用暂停；只有这条事件
+   * 才带得回 **是哪一类设备**（有线 / 蓝牙）下线或接入，从而决定重连后走哪条偏好。
+   *
+   * 对照上游：`PlaybackService.BecomingNoisyReceiver`（ACTION_AUDIO_BECOMING_NOISY → 暂停）
+   * + `prefUnpauseOnHeadsetReconnect` / `prefUnpauseOnBluetoothReconnect`（重连恢复）。
+   */
+  private static handleOutputDeviceChange(info: audio.AudioStreamDeviceChangeInfo): void {
+    if (info === undefined) {
+      return;
+    }
+    const reason: string = PlayerManager.toDeviceChangeReason(info.changeReason);
+    const classes: string[] = PlayerManager.toDeviceClasses(info.devices);
+    Logger.info(TAG, 'outputDeviceChange reason=' + reason + ' devices=[' + classes.join(',') + ']'
+      + ' status=' + PlayerManager.status + ' intent=' + PlayerManager.playIntent
+      + ' cause=' + PlayerManager.pauseCause);
+
+    if (reason === DeviceChangeReasons.LOST) {
+      const pauseEnabled: boolean = UserPreferences.isPauseOnHeadsetDisconnect();
+      if (!OutputDevicePolicy.shouldPauseOnDeviceLost(PlayerManager.playIntent, pauseEnabled)) {
+        Logger.info(TAG, 'device lost: no pause (intent=' + PlayerManager.playIntent + ' enabled=' + pauseEnabled + ')');
+        return;
+      }
+      PlayerManager.pauseCause = PAUSE_CAUSE_DEVICE;
+      PlayerManager.pauseForDeviceLoss().catch((error: Error) => {
+        Logger.warn(TAG, 'pauseForDeviceLoss failed: ' + error.message);
+      });
+      return;
+    }
+
+    if (reason === DeviceChangeReasons.AVAILABLE) {
+      const resume: boolean = OutputDevicePolicy.shouldResumeOnDeviceAvailable(
+        classes, PlayerManager.pauseCause === PAUSE_CAUSE_DEVICE,
+        UserPreferences.isUnpauseOnHeadsetReconnect(), UserPreferences.isUnpauseOnBluetoothReconnect());
+      if (resume) {
+        Logger.info(TAG, 'device available: resume playback');
+        // 先清原因再播：play() 若因底层状态不可播而空转，也不该把这个「恢复机会」留给下一次插拔
+        PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
+        PlayerManager.play();
+      }
+      return;
+    }
+
+    if (reason === DeviceChangeReasons.OVERRODE) {
+      // 用户在播控中心强选了输出设备：既不算设备丢失，也不该保留「等重连恢复」的意图
+      PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
+    }
+  }
+
+  /** audio.AudioStreamDeviceChangeReason -> 策略层的抽象原因（见 OutputDevicePolicy） */
+  private static toDeviceChangeReason(reason: audio.AudioStreamDeviceChangeReason): string {
+    if (reason === audio.AudioStreamDeviceChangeReason.REASON_OLD_DEVICE_UNAVAILABLE) {
+      return DeviceChangeReasons.LOST;
+    }
+    if (reason === audio.AudioStreamDeviceChangeReason.REASON_NEW_DEVICE_AVAILABLE) {
+      return DeviceChangeReasons.AVAILABLE;
+    }
+    if (reason === audio.AudioStreamDeviceChangeReason.REASON_OVERRODE) {
+      return DeviceChangeReasons.OVERRODE;
+    }
+    return DeviceChangeReasons.UNKNOWN;
+  }
+
+  /**
+   * audio.DeviceType -> 策略层的设备类别。
+   *
+   * 只映射 API 12 就存在的取值（本工程 compatibleSdkVersion = 5.0.0(12)）：
+   * 助听器（HEARING_AID）/ NearLink（NEARLINK）是 API 26 才加入的枚举，
+   * 这里落到 OTHER —— 它们同样会触发设备丢失暂停（暂停只看原因），只是重连后不走「蓝牙重连」偏好。
+   */
+  private static toDeviceClasses(devices: audio.AudioDeviceDescriptors): string[] {
+    const classes: string[] = [];
+    if (devices === undefined) {
+      return classes;
+    }
+    for (const device of devices) {
+      classes.push(PlayerManager.toDeviceClass(device.deviceType));
+    }
+    return classes;
+  }
+
+  private static toDeviceClass(deviceType: audio.DeviceType): string {
+    if (deviceType === audio.DeviceType.WIRED_HEADSET
+      || deviceType === audio.DeviceType.WIRED_HEADPHONES
+      || deviceType === audio.DeviceType.USB_HEADSET) {
+      return DeviceClasses.WIRED;
+    }
+    if (deviceType === audio.DeviceType.BLUETOOTH_SCO
+      || deviceType === audio.DeviceType.BLUETOOTH_A2DP) {
+      return DeviceClasses.BLUETOOTH;
+    }
+    if (deviceType === audio.DeviceType.SPEAKER || deviceType === audio.DeviceType.EARPIECE) {
+      return DeviceClasses.BUILT_IN;
+    }
+    return DeviceClasses.OTHER;
   }
 
   private static handleStateChange(state: media.AVPlayerState, reason: media.StateChangeReason): void {
@@ -406,10 +579,15 @@ export class PlayerManager {
       PlayerManager.status = PlayerStatus.PREPARED;
     } else if (state === 'completed') {
       PlayerManager.status = PlayerStatus.COMPLETED;
+      // 播完不再有「稍后恢复」的语义：清掉意图与暂停原因，避免换集后误恢复
+      PlayerManager.playIntent = false;
+      PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
     } else if (state === 'released') {
       PlayerManager.status = PlayerStatus.IDLE;
     } else if (state === 'error') {
       PlayerManager.status = PlayerStatus.ERROR;
+      PlayerManager.playIntent = false;
+      PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
     }
     const statusData: PlayerStatusData = { status: PlayerManager.status };
     EventHub.publish(EventType.PLAYER_STATUS, statusData);

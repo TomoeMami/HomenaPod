@@ -1507,6 +1507,22 @@
     {
       "name": "playback_speed_global",
       "value": "Use global"
+    },
+    {
+      "name": "settings_category_interruptions",
+      "value": "Interruptions"
+    },
+    {
+      "name": "setting_pause_on_disconnect",
+      "value": "Pause when headphones disconnect"
+    },
+    {
+      "name": "setting_unpause_on_headset_reconnect",
+      "value": "Resume when headphones reconnect"
+    },
+    {
+      "name": "setting_unpause_on_bluetooth_reconnect",
+      "value": "Resume when Bluetooth reconnects"
     }
   ]
 }

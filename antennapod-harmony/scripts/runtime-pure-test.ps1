@@ -28,15 +28,18 @@ if (-not $node) {
   throw "找不到 node。请安装 Node.js，或设置 DEVECO_NODE 指向 node 可执行文件。"
 }
 if (Test-Path $work) { Remove-Item $work -Recurse -Force }
-New-Item -ItemType Directory -Path (Join-Path $work 'model'), (Join-Path $work 'utils'), (Join-Path $work 'parser') -Force | Out-Null
+New-Item -ItemType Directory -Path (Join-Path $work 'model'), (Join-Path $work 'utils'), (Join-Path $work 'parser'), (Join-Path $work 'player') -Force | Out-Null
 
 $models = @('Enums','Feed','FeedItem','FeedMedia','FeedPreferences','Chapter','Playable','QueueItem',
             'DownloadLogEntry','FeedFilter','FeedItemFilter')
 $utils = @('DurationUtils','DateUtils','MimeTypeUtils','HtmlCleaner','SortUtils','InboxBaseline')
 $parser = @('XmlReader','FeedParser')
+# player 下只有「纯逻辑」文件能进这里：不 import 任何 @kit.*（OutputDevicePolicy 便是如此）
+$player = @('OutputDevicePolicy')
 foreach ($m in $models) { Copy-Item (Join-Path $src "model/$m.ets") (Join-Path $work "model/$m.ts") }
 foreach ($u in $utils) { Copy-Item (Join-Path $src "utils/$u.ets") (Join-Path $work "utils/$u.ts") }
 foreach ($p in $parser) { Copy-Item (Join-Path $src "parser/$p.ets") (Join-Path $work "parser/$p.ts") }
+foreach ($q in $player) { Copy-Item (Join-Path $src "player/$q.ets") (Join-Path $work "player/$q.ts") }
 
 @"
 {
@@ -254,6 +257,37 @@ const baselineFeed = new Feed({
 });
 assert.strictEqual(InboxBaseline.isItemBefore(makeItem(1, 'old', 5000, 1000, 7), baselineFeed, true), true);
 assert.strictEqual(InboxBaseline.isItemBefore(makeItem(2, 'new', 15000, 1000, 7), baselineFeed, true), false);
+
+// ---- 耳机/蓝牙断开的暂停策略（OutputDevicePolicy）----
+const { OutputDevicePolicy, DeviceClasses, DeviceChangeReasons } =
+  require('./player/OutputDevicePolicy.js');
+
+// ① 该不该暂停：只有「本意是在播放」且设置开关打开时才暂停
+assert.strictEqual(OutputDevicePolicy.shouldPauseOnDeviceLost(true, true), true);
+assert.strictEqual(OutputDevicePolicy.shouldPauseOnDeviceLost(false, true), false);  // 用户自己按过暂停
+assert.strictEqual(OutputDevicePolicy.shouldPauseOnDeviceLost(true, false), false);  // 设置里关掉了
+assert.strictEqual(OutputDevicePolicy.shouldPauseOnDeviceLost(false, false), false);
+
+// ② 该不该恢复：只有「因设备丢失而暂停」才谈得上自动恢复
+assert.strictEqual(OutputDevicePolicy.shouldResumeOnDeviceAvailable([DeviceClasses.WIRED], false, true, true), false);
+assert.strictEqual(OutputDevicePolicy.shouldResumeOnDeviceAvailable([DeviceClasses.WIRED], true, true, false), true);
+// ③ 蓝牙重连：上游默认「不恢复」，用户显式打开才恢复
+assert.strictEqual(OutputDevicePolicy.shouldResumeOnDeviceAvailable([DeviceClasses.BLUETOOTH], true, true, false), false);
+assert.strictEqual(OutputDevicePolicy.shouldResumeOnDeviceAvailable([DeviceClasses.BLUETOOTH], true, true, true), true);
+// ④ 非耳机设备接入（扬声器 / HDMI / 投屏）一律不恢复
+assert.strictEqual(OutputDevicePolicy.shouldResumeOnDeviceAvailable([DeviceClasses.BUILT_IN], true, true, true), false);
+assert.strictEqual(OutputDevicePolicy.shouldResumeOnDeviceAvailable([DeviceClasses.OTHER], true, true, true), false);
+assert.strictEqual(OutputDevicePolicy.shouldResumeOnDeviceAvailable([], true, true, true), false);
+// ⑤ 一次变更里混着扬声器与耳机：以耳机为准
+assert.strictEqual(OutputDevicePolicy.shouldResumeOnDeviceAvailable(
+  [DeviceClasses.BUILT_IN, DeviceClasses.WIRED], true, true, false), true);
+// ⑥ 耳机类别判定
+assert.strictEqual(OutputDevicePolicy.isHeadset(DeviceClasses.WIRED), true);
+assert.strictEqual(OutputDevicePolicy.isHeadset(DeviceClasses.BLUETOOTH), true);
+assert.strictEqual(OutputDevicePolicy.isHeadset(DeviceClasses.BUILT_IN), false);
+assert.strictEqual(OutputDevicePolicy.isHeadset(DeviceClasses.OTHER), false);
+assert.strictEqual(OutputDevicePolicy.isBluetooth(DeviceClasses.BLUETOOTH), true);
+assert.strictEqual(OutputDevicePolicy.isBluetooth(DeviceClasses.WIRED), false);
 
 console.log('RUNTIME PURE LOGIC TESTS PASSED');
 '@ | Set-Content $runJs -Encoding UTF8
