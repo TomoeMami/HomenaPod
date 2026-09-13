@@ -110,6 +110,13 @@ export struct QueuePage {
   /** 本次拖拽是否发生过换位（决定松手后是否需要落库） */
   private dragReordered: boolean = false;
   /**
+   * 被拖行**当前**所在的槽位下标（换位时同步更新）。
+   * 不能每帧用 `items.findIndex(id)` 现算：只要数据源与 items 不是同一数组
+   * （历史上就是这样，见 load() 的单一数据源约定），findIndex 会一直返回拖拽开始时的旧下标，
+   * 换位就会算到别的行身上——表现为「拖 A 动 B」和越拖越偏。
+   */
+  private dragIndex: number = -1;
+  /**
    * 被拖行「离开原槽位」的累计位移（vp）= 各次换位挪动的槽位节距之和。
    * PanGesture 的 offsetY 是手势开始以来的累计值，所以这里必须累计：
    * 换位判断用 `offsetY - dragConsumed`，只减当前帧的换位量会让被拖行越漂越远。
@@ -120,6 +127,8 @@ export struct QueuePage {
   private dragScrollY: number = 0;
   /** 每行实测高度（vp，由 EpisodeRow 的 onAreaChange 上报）：换位阈值按真实行高计算 */
   private rowHeights: Map<number, number> = new Map<number, number>();
+  /** 最近一次实测到的行高（vp）：未测量过的行按它兜底（见 rowHeightOf） */
+  private lastRowHeight: number = 0;
   /** 订阅标题 / 封面 / 倍速，按 feedId 索引（信息条与行内展示共用） */
   private feedTitles: Map<number, string> = new Map<number, string>();
   private feedImages: Map<number, string> = new Map<number, string>();
@@ -463,14 +472,22 @@ export struct QueuePage {
       // 实测行高：换位阈值 / 槽位位移都按真实高度算
       onHeightChange: (height: number) => {
         this.rowHeights.set(item.id, height);
+        this.lastRowHeight = height;
       }
     })
   }
 
-  /** 行高（vp）：优先用实测值，未测得（尚未进入可视区）时回落到默认行高 */
+  /**
+   * 行高（vp）：优先用实测值；长队列里从未进入可视区（未测量）的行用「最近一次实测值」兜底，
+   * 比写死 {@link FALLBACK_ROW_HEIGHT} 更接近真实节距——否则长距离拖拽越过未测量的行时，
+   * 换位阈值会整体偏小，每次换位都提前一点，越拖越偏。
+   */
   private rowHeightOf(item: FeedItem): number {
     const measured: number | undefined = this.rowHeights.get(item.id);
-    return measured !== undefined && measured > 0 ? measured : QueuePage.FALLBACK_ROW_HEIGHT;
+    if (measured !== undefined && measured > 0) {
+      return measured;
+    }
+    return this.lastRowHeight > 0 ? this.lastRowHeight : QueuePage.FALLBACK_ROW_HEIGHT;
   }
 
   /** 槽位 index 的顶部偏移（vp）：前面各行高度 + 行间距之和 */
@@ -509,11 +526,16 @@ export struct QueuePage {
     if (!this.dragEnabled()) {
       return false;
     }
+    // 已有拖拽在进行时不再接管（多点触控下第二根手指按住别的行会让两行状态打架）
+    if (this.dragId >= 0) {
+      return false;
+    }
     const index: number = this.items.findIndex((entry: FeedItem) => entry.id === itemId);
     if (index < 0) {
       return false;
     }
     this.dragId = itemId;
+    this.dragIndex = index;
     this.dragReordered = false;
     this.dragConsumed = 0;
     this.dragStartTop = this.slotOffset(index);
@@ -528,14 +550,19 @@ export struct QueuePage {
    * （`onDataMove` + `animateTo` 让相邻行滑动让位）。
    *
    * 阈值取「两行中心间距」而非固定半行节距：行高随标题行数变化（1 行 / 2 行），
-   * 固定节距会在行高不一致时算错槽位；且中心间距大于单行位移，换位后残差落在
-   * 区间内部，不会在阈值附近来回抖动。
+   * 固定节距会在行高不一致时算错槽位。
+   *
+   * `dragConsumed` 的增量必须取**让位那一行**的节距（`邻行高度 + 行间距`），
+   * 不是被拖行自己的高度：换位后被拖行的槽位顶从 `T(i)` 变成 `T(i±1)`，
+   * 位移量就是邻行的「高度 + 间距」。取错会在每次换位后留下
+   * `|自己被拖行高 - 邻行高|` 的残差，多次换位逐次累积 → 越拖越偏。
+   * 增量取对之后，每次换位恰好发生在「被拖行中心 = 目标槽位中心」处，残差不会累积。
    */
   private moveHandleDrag(itemId: number, offsetY: number): void {
     if (this.dragId !== itemId) {
       return;
     }
-    let index: number = this.items.findIndex((entry: FeedItem) => entry.id === itemId);
+    let index: number = this.currentDragIndex();
     if (index < 0) {
       return;
     }
@@ -547,9 +574,9 @@ export struct QueuePage {
         const next: number = this.rowHeightOf(this.items[index + 1]);
         if (offsetY - this.dragConsumed >= (dragged + next) / 2 + space) {
           this.moveSlot(index, index + 1);
-          // 槽位下移「被拖行高度 + 行间距」
-          this.dragConsumed += dragged + space;
+          this.dragConsumed += next + space;
           index++;
+          this.dragIndex = index;
           continue;
         }
       }
@@ -559,16 +586,33 @@ export struct QueuePage {
           this.moveSlot(index, index - 1);
           this.dragConsumed -= prev + space;
           index--;
+          this.dragIndex = index;
           continue;
         }
       }
       break;
     }
+    this.dragIndex = index;
     // 浮层严格跟手：原槽位 + 手势累计位移（与换位无关，换位只影响列表里的槽位）
     this.dragOverlayY = this.dragStartTop - this.dragScrollY + offsetY;
   }
 
-  /** 交换两个槽位（dataSource 与 this.items 引用同一数组，两边会同步改动） */
+  /** 被拖行当前下标：以 `dragIndex` 为准，失效（被拖行已不在该槽位）时才按 id 回查纠正 */
+  private currentDragIndex(): number {
+    if (this.dragIndex >= 0 && this.dragIndex < this.items.length
+      && this.items[this.dragIndex].id === this.dragId) {
+      return this.dragIndex;
+    }
+    const found: number = this.items.findIndex((entry: FeedItem) => entry.id === this.dragId);
+    this.dragIndex = found;
+    return found;
+  }
+
+  /**
+   * 交换两个槽位。`move` 就地 splice 数据源底层数组，而 load() 保证 `this.items`
+   * 与它**是同一个对象**（单一数据源约定），因此换位后 this.items 立刻就是新顺序，
+   * 下一帧的 currentDragIndex / 落库顺序都跟着对。
+   */
   private moveSlot(from: number, to: number): void {
     animateTo({ duration: QueuePage.SLOT_MOVE_DURATION, curve: Curve.EaseOut }, () => {
       this.dataSource.move(from, to);
@@ -582,13 +626,16 @@ export struct QueuePage {
       return;
     }
     this.dragId = -1;
+    this.dragIndex = -1;
     this.dragItem = undefined;
     this.dragConsumed = 0;
     if (!this.dragReordered) {
       return;
     }
     this.dragReordered = false;
-    await QueueEngine.replaceOrder(this.items.slice());
+    // 落库用**列表正在显示的那份数组**（即数据源底层数组）：
+    // 拖拽视觉与落库顺序必须同源，否则队列页看着是新顺序、播放页「下一个」还按旧顺序走。
+    await QueueEngine.replaceOrder(this.dataSource.getDataArray().slice());
   }
 
   /** 划出项配置（左右动作由设置页「滑动动作」决定，队列默认两侧都是「移出队列」） */
@@ -1357,10 +1404,19 @@ export struct QueuePage {
       const sameOrder: boolean = items.length === this.items.length
         && items.every((entry: FeedItem, index: number) => entry.id === this.items[index].id);
       const wasEmpty: boolean = this.items.length === 0;
-      this.items = items;
-      if (!sameOrder) {
+      if (sameOrder) {
+        // 顺序一致：静默把底层数组换成本次读到的对象（不重建列表、滚动位置不动）。
+        // 注意不能只 `this.items = items`——那样 this.items 与列表底层数组就成了两个对象。
+        this.dataSource.replaceData(items);
+      } else {
         this.dataSource.setData(items);
       }
+      // **单一数据源约定**：this.items 必须与列表底层数组是同一个对象。
+      // 拖拽换位走 `dataSource.move()`（就地 splice），两者一旦不是同一对象，
+      // UI 顺序已经变了而 this.items 还停在旧顺序：换位会算到错误的行上（触控漂移 /
+      // 拖 A 动 B），松手时 `replaceOrder(this.items)` 落库的也还是旧顺序
+      // （表现为「队列里改了顺序，播放页点『下一个』不生效」）。
+      this.items = this.dataSource.getDataArray();
       // 行内取值走 rowItem() 回查：顺序不变时列表里的行不会重建，拿不到新对象
       const rowItems: Map<number, FeedItem> = new Map<number, FeedItem>();
       for (const entry of items) {

@@ -29,6 +29,17 @@ export class LazyDataSource<T> implements IDataSource {
     }
   }
 
+  /**
+   * 静默换数据：只把底层数组换成新的一份，**不通知**列表重建。
+   * 用于「顺序（键值）完全没变、只是对象重新从库里读了一遍」的场景：
+   * `onDataReloaded` 会让列表重建并把滚动位置拉回顶部，而这里保留已渲染的行。
+   * 同时保证 `getDataArray()` 与调用方随后持有的数组是**同一个对象**——
+   * 拖拽排序（`move` 就地改数组）和「顺序落库」都依赖这个约定。
+   */
+  replaceData(data: T[]): void {
+    this.data = data;
+  }
+
   /** 增量追加（分页加载下一页）：逐条通知，避免 onDataReloaded 让列表回到顶部 */
   appendData(items: T[]): void {
     if (items.length === 0) {

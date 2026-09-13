@@ -973,7 +973,9 @@ struct FeedDetailPage {
     if (this.feed === undefined) {
       return;
     }
-    this.loading = true;
+    // 只有首屏（列表还是空的时候）才整页显示「加载中」：`loading` 是 build 的结构分支，
+    // 每次重载都置 true 会把整个列表拆掉重建（上千集时要建上千个行组件，主线程卡死）
+    this.loading = this.episodes.length === 0;
     this.errorMessage = '';
     try {
       const unplayed: boolean = this.filter === 'unplayed';
@@ -990,7 +992,7 @@ struct FeedDetailPage {
       }
       this.episodes = items;
       this.dataSource.setData(items);
-      await this.loadFavoriteIds(items);
+      await this.loadFavoriteIds();
     } catch (error) {
       this.episodes = [];
       this.dataSource.setData([]);
@@ -1001,18 +1003,14 @@ struct FeedDetailPage {
   }
 
   /** 同步收藏状态到 @State，驱动 ★ 按钮显示 */
-  async loadFavoriteIds(items: FeedItem[]): Promise<void> {
-    const ids: number[] = [];
-    for (const item of items) {
-      try {
-        if (await FavoritesRepository.isFavorite(item.id)) {
-          ids.push(item.id);
-        }
-      } catch (error) {
-        // 收藏查询失败不阻断列表
-      }
+  async loadFavoriteIds(): Promise<void> {
+    // 一条 SQL 取回全部收藏 id，不再逐条 isFavorite（上千集的播客 = 上千次串行查询）
+    try {
+      this.favoriteIds = await FavoritesRepository.listIds();
+    } catch (error) {
+      // 收藏查询失败不阻断列表
+      this.favoriteIds = [];
     }
-    this.favoriteIds = ids;
     try {
       await QueueEngine.load();
       this.queueIds = QueueEngine.getItems().map((entry: FeedItem) => entry.id);

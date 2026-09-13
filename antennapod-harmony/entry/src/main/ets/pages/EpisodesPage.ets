@@ -1,5 +1,5 @@
 import router from '@ohos.router';
-import { EpisodeRepository, EpisodeListFilter } from '../db/repositories/EpisodeRepository';
+import { EpisodeRepository, EpisodeListFilter, EpisodeListCursor } from '../db/repositories/EpisodeRepository';
 import { FavoritesRepository } from '../db/repositories/FavoritesRepository';
 import { FeedItem } from '../model/FeedItem';
 import { MediaType, SortOrder } from '../model/Enums';
@@ -17,6 +17,7 @@ import { OverflowButton } from '../components/OverflowButton';
 import { EpisodeRow } from '../components/EpisodeRow';
 import { EmptyState } from '../components/EmptyState';
 import { TagChip } from '../components/TagChip';
+import { LazyDataSource } from '../components/LazyDataSource';
 
 /**
  * Episodes 全库总表（对照上游 AllEpisodesFragment）：
@@ -27,6 +28,13 @@ import { TagChip } from '../components/TagChip';
 @Component
 struct EpisodesPage {
   @State items: FeedItem[] = [];
+  /**
+   * 列表数据源（LazyForEach 按需创建行）。
+   * 全库单集可以有上万条，用 ForEach 会**一次性创建全部行组件**：
+   * 实测 1.5 万条时主线程在 ArkUI 组件构建里卡死 6 s（appfreeze，见第48轮）。
+   * LazyForEach 只建可视区那几行，容器本身也不再随每次 reload 重建。
+   */
+  private dataSource: LazyDataSource<FeedItem> = new LazyDataSource<FeedItem>();
   @State loading: boolean = true;
   @State message: string = '';
   @State filterMode: number = 0;
@@ -42,6 +50,21 @@ struct EpisodesPage {
   private queueIds: number[] = [];
   private downloadToken: number = -1;
   private messageTimerId: number = -1;
+  /** 下一页游标（undefined = 没有下一页；首屏 / 换过滤 / 换排序后复位） */
+  private cursor: EpisodeListCursor | undefined = undefined;
+  /** 后面还有没有页（上一页取满了就当作有） */
+  private hasMore: boolean = false;
+  /** 已加载单集 id：翻页去重（游标边界上可能重复取到同一条） */
+  private loadedIds: Set<number> = new Set<number>();
+  /** 翻页重入闸门（onReachEnd 会连续触发） */
+  private loadingMore: boolean = false;
+
+  /**
+   * 每页条数。全库单集可以有上万条（实测本机 1.5 万），**必须分页**：
+   * 一次性读全库 + 逐条映射会把 JS 线程占住数秒（打开页面卡 3 s、reload 时列表消失 9 s，
+   * 并在 ArkUI 组件构建里触发 THREAD_BLOCK_6S appfreeze）。
+   */
+  private static readonly PAGE_SIZE: number = 100;
 
   /** 过滤模式：0=全部 1=未播放 2=已下载 3=继续收听 */
   private static readonly FILTER_ALL: number = 0;
@@ -107,15 +130,21 @@ struct EpisodesPage {
           .justifyContent(FlexAlign.Center)
         } else {
           List({ space: DesignTokens.SPACE_XS }) {
-            ForEach(this.items, (item: FeedItem) => {
+            // 键值只取 id（LazyForEach 的键必须稳定）：下载进度等行内变化
+            // 由 onDownloadEvent 里的 notifyDataChange(index) 驱动，不再靠键里编进度
+            LazyForEach(this.dataSource, (item: FeedItem) => {
               ListItem() {
                 this.episodeRow(item)
               }
-            }, (item: FeedItem) => this.rowKey(item))
+            }, (item: FeedItem) => item.id.toString())
           }
           .layoutWeight(1)
           .padding({ left: DesignTokens.PAGE_MARGIN, right: DesignTokens.PAGE_MARGIN, bottom: DesignTokens.SPACE_XXL })
           .scrollBar(BarState.Off)
+          .onReachEnd(() => {
+            // 滚到底：按游标续读下一页（增量追加，不重建列表）
+            this.loadMore();
+          })
         }
       }
       .width('100%')
@@ -427,15 +456,32 @@ struct EpisodesPage {
   aboutToAppear(): void {
     this.load();
     this.downloadToken = EventHub.subscribe(EventType.EPISODE_DOWNLOAD, (data: object) => {
-      const state: string = (data as Record<string, string>)['state'];
-      if (state === 'DONE') {
-        // file_url 变了，要重新查库才能把行切到"已下载"
-        this.load();
+      this.onDownloadEvent(data);
+    });
+  }
+
+  /**
+   * 下载事件只刷新**受影响的那一行**（对照 QueuePage.onDownloadEvent）。
+   * 以前这里是「key 里编进进度 + 换数组引用」逼 ForEach 重算键，LazyForEach 下改成
+   * 精确定位后 `notifyDataChange(index)`：不会因为一次进度回调把整页 1.5 万条重新拉一遍。
+   */
+  private async onDownloadEvent(data: object): Promise<void> {
+    const payload: EpisodeDownloadData = data as EpisodeDownloadData;
+    const index: number = this.items.findIndex((entry: FeedItem) =>
+    entry.media !== undefined && entry.media.id === payload.mediaId);
+    if (index < 0) {
+      return;
+    }
+    if (payload.state === 'DONE') {
+      // file_url 变了，要重新查库才能把行切到「已下载」
+      const fresh: FeedItem | undefined = await EpisodeRepository.getById(this.items[index].id);
+      if (fresh === undefined) {
         return;
       }
-      // RUNNING / PAUSED / PROGRESS / FAILED / REMOVED 只影响行内进度环，读 DownloadManager 即可
-      this.refreshRows();
-    });
+      this.items[index] = fresh;
+    }
+    // RUNNING / PAUSED / PROGRESS / FAILED / REMOVED 只影响行内进度环，读 DownloadManager 即可
+    this.dataSource.notifyDataChange(index);
   }
 
   aboutToDisappear(): void {
@@ -461,26 +507,6 @@ struct EpisodesPage {
     }, 3000);
   }
 
-  /** 只换数组引用触发 ForEach 重算 key（进度环随 key 里的百分比重建），不查库 */
-  private refreshRows(): void {
-    this.items = this.items.slice();
-  }
-
-  /**
-   * ForEach 只在 key 变化时重建行。下载进度存在 DownloadManager 里、不是 @State，
-   * 因此把下载状态与百分比编进 key，下载中才会实时刷新。
-   */
-  private rowKey(item: FeedItem): string {
-    if (item.media === undefined) {
-      return item.id.toString();
-    }
-    const state: string = DownloadManager.getStatus(item.media.id);
-    if (state !== 'RUNNING' && state !== 'PAUSED') {
-      return item.id.toString() + '-' + state;
-    }
-    return item.id.toString() + '-' + state + '-' + DownloadManager.getProgressPercent(item.media.id).toString();
-  }
-
   /** 行内下载进度环的百分比；-1 = 不显示（对照上游 secondaryActionProgress） */
   private downloadProgress(item: FeedItem): number {
     if (item.media === undefined) {
@@ -495,17 +521,13 @@ struct EpisodesPage {
   }
 
   async load(): Promise<void> {
-    this.loading = true;
+    // 只有首屏（列表还是空的时候）才整页显示「加载中」：`loading` 是 build 里的**结构分支**，
+    // 每次重载都置 true 会把整个 List 拆掉、加载完再重建 —— 全库 400 条时这条路径
+    // 实测要 6 s+（主线程在 ArkUI 组件构建里，触发 appfreeze），批量操作后 reload 尤其明显。
+    this.loading = this.items.length === 0;
     try {
-      const filter: EpisodeListFilter = new EpisodeListFilter();
-      if (this.filterMode === EpisodesPage.FILTER_UNPLAYED) {
-        filter.unplayedOnly = true;
-      } else if (this.filterMode === EpisodesPage.FILTER_DOWNLOADED) {
-        filter.downloadedOnly = true;
-      } else if (this.filterMode === EpisodesPage.FILTER_IN_PROGRESS) {
-        filter.inProgressOnly = true;
-      }
-      const items: FeedItem[] = await EpisodeRepository.listAll(filter, this.sortOrder);
+      const items: FeedItem[] = await EpisodeRepository.listPage(
+        this.currentFilter(), this.sortOrder, EpisodesPage.PAGE_SIZE);
       const favorites: FeedItem[] = await FavoritesRepository.list();
       const favoriteIds: number[] = favorites.map((entry: FeedItem) => entry.id);
       await QueueEngine.load();
@@ -516,13 +538,80 @@ struct EpisodesPage {
       }
       this.favoriteIds = favoriteIds;
       this.queueIds = queueIds;
+      // 首屏：复位游标与去重集合，从第一页重新开始
+      this.cursor = undefined;
+      this.loadedIds = new Set<number>();
       this.items = items;
+      this.dataSource.setData(items);
+      this.remember(items);
+      this.hasMore = items.length === EpisodesPage.PAGE_SIZE;
     } catch (error) {
+      this.cursor = undefined;
+      this.loadedIds = new Set<number>();
+      this.hasMore = false;
       this.items = [];
+      this.dataSource.setData([]);
       this.showMessage((error as Error).message);
     } finally {
       this.loading = false;
     }
+  }
+
+  /** 当前过滤胶囊对应的查询条件（首屏与翻页共用，两边必须完全一致） */
+  private currentFilter(): EpisodeListFilter {
+    const filter: EpisodeListFilter = new EpisodeListFilter();
+    if (this.filterMode === EpisodesPage.FILTER_UNPLAYED) {
+      filter.unplayedOnly = true;
+    } else if (this.filterMode === EpisodesPage.FILTER_DOWNLOADED) {
+      filter.downloadedOnly = true;
+    } else if (this.filterMode === EpisodesPage.FILTER_IN_PROGRESS) {
+      filter.inProgressOnly = true;
+    }
+    return filter;
+  }
+
+  /** 滚到底部：按游标续读下一页并增量追加（不重建列表，滚动位置不变） */
+  async loadMore(): Promise<void> {
+    if (this.loading || this.loadingMore || !this.hasMore || this.cursor === undefined) {
+      return;
+    }
+    this.loadingMore = true;
+    try {
+      const page: FeedItem[] = await EpisodeRepository.listPage(
+        this.currentFilter(), this.sortOrder, EpisodesPage.PAGE_SIZE, this.cursor);
+      // 游标边界上可能重复取到同一条：按 id 去重后再追加
+      const fresh: FeedItem[] = page.filter((item: FeedItem) => !this.loadedIds.has(item.id));
+      for (const item of fresh) {
+        item.isFavorite = this.favoriteIds.includes(item.id);
+        item.inQueue = this.queueIds.includes(item.id);
+      }
+      this.dataSource.appendData(fresh);
+      this.items = this.dataSource.getDataArray();
+      this.remember(page);
+      this.hasMore = page.length === EpisodesPage.PAGE_SIZE;
+    } catch (error) {
+      this.hasMore = false;
+      this.showMessage((error as Error).message);
+    } finally {
+      this.loadingMore = false;
+    }
+  }
+
+  /** 记录本页已加载 id 与下一页游标（排序键 + id 双键，与 SQL 的 ORDER BY 一一对应） */
+  private remember(items: FeedItem[]): void {
+    for (const item of items) {
+      this.loadedIds.add(item.id);
+    }
+    if (items.length === 0) {
+      return;
+    }
+    const last: FeedItem = items[items.length - 1];
+    this.cursor = {
+      pubDate: last.pubDate,
+      duration: last.media === undefined ? 0 : last.media.duration,
+      title: last.title,
+      id: last.id
+    };
   }
 
   /** 下载按钮状态：优先看数据库 file_url，再看会话内任务状态（对照 FeedDetailPage.downloadState） */

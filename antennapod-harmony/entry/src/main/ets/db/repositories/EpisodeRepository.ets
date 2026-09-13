@@ -75,6 +75,17 @@ export interface InboxCursor {
   id: number;
 }
 
+/**
+ * Episodes 全库列表的游标分页位置（最后一条已加载单集的排序键 + id）。
+ * 与 {@link InboxCursor} 同一套写法，多一条 `title`（该列表支持按标题排序）。
+ */
+export interface EpisodeListCursor {
+  pubDate: number;
+  duration: number;
+  title: string;
+  id: number;
+}
+
 export class EpisodeRepository {
   /**
    * Inbox 分页查询的媒体列（别名前缀 media_，与 FeedItemMapper.mapMediaPrefixed 对应）。
@@ -92,20 +103,25 @@ export class EpisodeRepository {
   static async listByFeed(feedId: number, unplayedOnly: boolean = false,
                           order: SortOrder = SortOrder.DATE_NEW_OLD): Promise<FeedItem[]> {
     // read 三态：-1=新、0=未播放、1=已播放 →「未播放」= read != 1（与上游 FeedItemFilterQuery 一致）
-    const where: string = unplayedOnly ? ` AND read != 1` : '';
+    const where: string = unplayedOnly ? ` AND i.read != 1` : '';
     const rs: relationalStore.ResultSet = await DbManager.querySql(
-      `SELECT * FROM ${TABLE_FEED_ITEMS} WHERE feed = ${feedId}${where} ORDER BY pubdate DESC`
+      `SELECT i.*, ${EpisodeRepository.MEDIA_COLUMNS}
+       FROM ${TABLE_FEED_ITEMS} i
+       LEFT JOIN ${TABLE_FEED_MEDIA} m ON m.feeditem = i.id
+       WHERE i.feed = ${feedId}${where}
+       ORDER BY i.pubdate DESC`
     );
     const items: FeedItem[] = [];
     if (rs.goToFirstRow()) {
       do {
-        items.push(FeedItemMapper.map(rs));
+        const item: FeedItem = FeedItemMapper.map(rs);
+        // 媒体随主查询一次取回（与 listInboxPage / listPage 同一套写法）：
+        // 订阅详情页面对的是上千集的播客，逐条 getMediaByFeedItem 是上千次串行查询
+        item.media = FeedItemMapper.mapMediaPrefixed(rs, 'media_');
+        items.push(item);
       } while (rs.goToNextRow());
     }
     rs.close();
-    for (const item of items) {
-      item.media = await EpisodeRepository.getMediaByFeedItem(item.id);
-    }
     if (order !== SortOrder.DATE_NEW_OLD) {
       return SortUtils.sortItems(items, order);
     }
@@ -113,12 +129,20 @@ export class EpisodeRepository {
   }
 
   /**
-   * 全库单集列表（Episodes 总表，对照上游 AllEpisodesFragment）。
-   * 过滤条件在 SQL 中完成（读/下载状态），排序走 SortUtils；
-   * 附带订阅标题与封面，供行内显示所属播客。
+   * 全库单集列表的一页（Episodes 总表，对照上游 AllEpisodesFragment 的**分页**读取）。
+   *
+   * 上游是 PagedList 一页页读；这里同样只取一页、按游标续读。**不能再一次性把全库读出来**：
+   * 本机库里 1.5 万条单集，全量 SELECT + 逐条映射会把 JS 线程占住好几秒
+   * （实测：Episodes 页打开时主线程卡 3 s、批量入队后的 reload 让列表消失 9 s，
+   * 并在 ArkUI 组件构建里触发 THREAD_BLOCK_6S appfreeze）。
+   *
+   * 过滤与排序都在 SQL 里完成（上游 `ItemSortDialog` 也是把排序下推到查询），
+   * 游标用「排序键 + id」双键：同日/同标题/同时长的条目也有稳定顺序，翻页不会漏读或重复。
    */
-  static async listAll(filter: EpisodeListFilter = new EpisodeListFilter(),
-                       order: SortOrder = SortOrder.DATE_NEW_OLD): Promise<FeedItem[]> {
+  static async listPage(filter: EpisodeListFilter = new EpisodeListFilter(),
+                        order: SortOrder = SortOrder.DATE_NEW_OLD,
+                        limit: number = 100,
+                        cursor?: EpisodeListCursor): Promise<FeedItem[]> {
     const conditions: string[] = [];
     if (filter.playedOnly) {
       conditions.push('i.read = 1');
@@ -136,18 +160,37 @@ export class EpisodeRepository {
       conditions.push(`m.position IS NOT NULL AND m.position > 0
         AND (m.duration IS NULL OR m.duration <= 0 OR m.position < m.duration - 1000)`);
     }
+    const byDuration: boolean = order === SortOrder.DURATION_SHORT_LONG
+      || order === SortOrder.DURATION_LONG_SHORT;
+    const byTitle: boolean = order === SortOrder.TITLE_A_Z || order === SortOrder.TITLE_Z_A;
+    const descending: boolean = order === SortOrder.DATE_NEW_OLD
+      || order === SortOrder.DURATION_LONG_SHORT || order === SortOrder.TITLE_Z_A;
+    const key: string = byDuration ? 'COALESCE(m.duration, 0)' : (byTitle ? 'i.title' : 'i.pubdate');
+    if (cursor !== undefined) {
+      const compare: string = descending ? '<' : '>';
+      const last: string = byTitle
+        ? `'${cursor.title.replace(/'/g, "''")}'`
+        : (byDuration ? cursor.duration.toString() : cursor.pubDate.toString());
+      // 游标条件必须和过滤条件一起组成 WHERE：单独拼在后面会落到 LEFT JOIN 的 ON 里
+      // （不设过滤时 WHERE 为空），条件对结果集失效 → 翻页永远返回同一页。
+      conditions.push(`(${key} ${compare} ${last} OR (${key} = ${last} AND i.id ${compare} ${cursor.id}))`);
+    }
     const where: string = conditions.length > 0 ? ' WHERE ' + conditions.join(' AND ') : '';
     const rs: relationalStore.ResultSet = await DbManager.querySql(
-      `SELECT i.*, f.custom_title AS feedCustomTitle, f.title AS feedTitle, f.image_url AS feedImage
+      `SELECT i.*, f.custom_title AS feedCustomTitle, f.title AS feedTitle,
+         f.image_url AS feedImage, ${EpisodeRepository.MEDIA_COLUMNS}
        FROM ${TABLE_FEED_ITEMS} i
        JOIN ${TABLE_FEEDS} f ON f.id = i.feed
        LEFT JOIN ${TABLE_FEED_MEDIA} m ON m.feeditem = i.id${where}
-       ORDER BY i.pubdate DESC`
+       ORDER BY ${key} ${descending ? 'DESC' : 'ASC'}, i.id ${descending ? 'DESC' : 'ASC'} LIMIT ${limit}`
     );
     const items: FeedItem[] = [];
     if (rs.goToFirstRow()) {
       do {
         const item: FeedItem = FeedItemMapper.map(rs);
+        // 媒体随主查询一次取回（LEFT JOIN），与 listInboxPage 同一套写法。
+        // 曾经这里写成「逐条 await getMediaByFeedItem」：上千条就是上千次串行查询。
+        item.media = FeedItemMapper.mapMediaPrefixed(rs, 'media_');
         const customTitle: string = EpisodeRepository.str(rs, 'feedCustomTitle');
         item.feedTitle = customTitle !== '' ? customTitle : EpisodeRepository.str(rs, 'feedTitle');
         item.feedImage = EpisodeRepository.str(rs, 'feedImage');
@@ -155,13 +198,6 @@ export class EpisodeRepository {
       } while (rs.goToNextRow());
     }
     rs.close();
-    // 一次性取媒体（避免逐条查询）
-    for (const item of items) {
-      item.media = await EpisodeRepository.getMediaByFeedItem(item.id);
-    }
-    if (order !== SortOrder.DATE_NEW_OLD) {
-      return SortUtils.sortItems(items, order);
-    }
     return items;
   }
 

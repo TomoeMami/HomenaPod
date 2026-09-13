@@ -16,6 +16,24 @@ export class FavoritesRepository {
     return found;
   }
 
+  /**
+   * 全部收藏的单集 id（一条 SQL）。
+   * 列表页整页判定收藏时用它，替代逐条 `isFavorite`（订阅详情页面对上千集时是上千次查询）。
+   */
+  static async listIds(): Promise<number[]> {
+    const rs: relationalStore.ResultSet = await DbManager.querySql(
+      `SELECT feeditem FROM ${TABLE_FAVORITES}`
+    );
+    const ids: number[] = [];
+    if (rs.goToFirstRow()) {
+      do {
+        ids.push(rs.getLong(rs.getColumnIndex('feeditem')));
+      } while (rs.goToNextRow());
+    }
+    rs.close();
+    return ids;
+  }
+
   static async add(feedItemId: number, feedId: number): Promise<void> {
     const values: relationalStore.ValuesBucket = {
       id: feedItemId,
