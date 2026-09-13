@@ -491,6 +491,8 @@ export struct SubscriptionsPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.page_bg'))
+    // 沉浸式状态栏：把页面背景的绘制区延伸到状态栏下（不改布局，内容仍避开状态栏）
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
     .onVisibleAreaChange([0.0, 1.0], (isVisible: boolean, ratio: number) => {
       // 从单集页/订阅设置返回时重新读库：上游 SubscriptionFragment.onStart 每次都会 loadSubscriptionsAndTags()，
       // 只靠事件订阅会漏掉「事件发出时本页不可见」的那一类变更。

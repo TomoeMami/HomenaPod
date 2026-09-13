@@ -310,6 +310,8 @@ export struct SettingsPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.page_bg'))
+    // 沉浸式状态栏：把页面背景的绘制区延伸到状态栏下（不改布局，内容仍避开状态栏）
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
   }
 
   /** 分类标题（对齐上游 PreferenceCategory：14sp 品牌色，paddingTop 16dp / paddingBottom 8dp） */

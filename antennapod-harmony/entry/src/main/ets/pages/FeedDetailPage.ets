@@ -202,6 +202,8 @@ struct FeedDetailPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.page_bg'))
+    // 沉浸式状态栏：把页面背景的绘制区延伸到状态栏下（不改布局，内容仍避开状态栏）
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
   }
 
   /** 标题栏右侧（对齐上游 menu/feedlist：搜索常驻，其余进溢出菜单） */

@@ -11,6 +11,7 @@
 // 校验判为 ERR_INVALID_PARAM（"native invalid parameters"），因此 duration 只在 > 0 时上报。
 import { avSession } from '@kit.AVSessionKit';
 import { wantAgent, WantAgent } from '@kit.AbilityKit';
+import { image } from '@kit.ImageKit';
 import common from '@ohos.app.ability.common';
 import { Playable } from '../model/Playable';
 import { FeedItem } from '../model/FeedItem';
@@ -20,6 +21,7 @@ import { EpisodeRepository } from '../db/repositories/EpisodeRepository';
 import { FavoritesRepository } from '../db/repositories/FavoritesRepository';
 import { UserPreferences } from '../prefs/UserPreferences';
 import { EventHub, EventType } from '../events/EventHub';
+import { ImageCache } from '../services/ImageCache';
 import { Logger } from '../utils/Logger';
 
 const TAG: string = 'AvSessionBridge';
@@ -28,6 +30,8 @@ const BUNDLE_NAME: string = 'com.homenapod.app';
 const ABILITY_NAME: string = 'EntryAbility';
 /** 进度上报节流（ms）：系统按 position.updateTime 自行推进进度，无需每次 timeUpdate 都上报 */
 const POSITION_REPORT_INTERVAL_MS: number = 1000;
+/** 播控卡封面解码后的最长边（px）：原图常见 1400px+，缩小后再交给播控中心，卡片刷新更快 */
+const COVER_MAX_EDGE_PX: number = 512;
 /** 重复模式取值（与 UserPreferences.getRepeatMode 约定一致） */
 const REPEAT_OFF: number = 0;
 const REPEAT_ONE: number = 1;
@@ -39,6 +43,16 @@ export class AvSessionBridge {
   private static assetId: number = -1;
   private static favorite: boolean = false;
   private static lastPositionReportAt: number = 0;
+  /** 应用上下文（解码封面图用，init 时保存） */
+  private static context: common.Context | undefined = undefined;
+  /**
+   * 已解码的封面（单条缓存）。PixelMap 内存占用大，只保留当前这一集；
+   * 换集后旧对象失去引用，由 GC 回收。
+   */
+  private static coverUrl: string = '';
+  private static cover: image.PixelMap | undefined = undefined;
+  /** 已经上报过封面的 Playable.id（避免同一集被重复解码 / 重复上报） */
+  private static coverAssetId: number = -1;
   /** 状态上报串行化：底层接口的返回值是共享的，并发调用会互相串扰出假失败 */
   private static reporting: boolean = false;
   private static pendingState: avSession.AVPlaybackState | undefined = undefined;
@@ -47,6 +61,7 @@ export class AvSessionBridge {
     if (AvSessionBridge.session !== undefined) {
       return;
     }
+    AvSessionBridge.context = context;
     try {
       const session: avSession.AVSession = await avSession.createAVSession(context, 'HomenaPod', 'audio');
       AvSessionBridge.session = session;
@@ -256,6 +271,81 @@ export class AvSessionBridge {
     }).catch((error: Error) => {
       Logger.warn(TAG, 'setAVMetadata failed: ' + error.message);
     });
+    // 封面单独补：取图/解码是异步的，不能阻塞标题与播控按钮的上报
+    AvSessionBridge.attachCover(session, metadata, playable);
+  }
+
+  /**
+   * 播控中心卡片的封面 = `AVMetadata.mediaImage`。
+   *
+   * 必须是 **PixelMap**：卡片由系统 UI 进程渲染，拿不到应用沙箱里的 `file://` 路径
+   * （传网络 URL 也依赖系统侧自行下载，实测卡片只显示默认音符占位图）。
+   * 这里复用 ImageCache 的磁盘缓存（命中即同步可用）解码成 PixelMap 再上报。
+   */
+  private static attachCover(session: avSession.AVSession, metadata: avSession.AVMetadata,
+                             playable: Playable): void {
+    if (playable.imageUrl === '' || AvSessionBridge.coverAssetId === playable.id) {
+      return;
+    }
+    AvSessionBridge.loadCover(playable.imageUrl).then((cover: image.PixelMap | undefined) => {
+      if (cover === undefined) {
+        return;
+      }
+      // 解码期间可能已经换集：只给仍在播的这一集补封面
+      const current: Playable | undefined = PlayerManager.getCurrent();
+      if (current === undefined || current.id !== playable.id) {
+        return;
+      }
+      metadata.mediaImage = cover;
+      session.setAVMetadata(metadata).then(() => {
+        AvSessionBridge.coverAssetId = playable.id;
+        Logger.info(TAG, 'metadata cover -> ' + playable.title);
+      }).catch((error: Error) => {
+        Logger.warn(TAG, 'setAVMetadata(cover) failed: ' + error.message);
+      });
+    }).catch((error: Error) => {
+      Logger.warn(TAG, 'attachCover failed: ' + error.message);
+    });
+  }
+
+  /** 取封面 PixelMap：磁盘缓存命中就同步用，未命中先下载；超过最长边则按比例缩小解码 */
+  private static async loadCover(url: string): Promise<image.PixelMap | undefined> {
+    const context: common.Context | undefined = AvSessionBridge.context;
+    if (url === '' || context === undefined) {
+      return undefined;
+    }
+    if (AvSessionBridge.coverUrl === url && AvSessionBridge.cover !== undefined) {
+      return AvSessionBridge.cover;
+    }
+    let src: string = ImageCache.peek(url, context);
+    if (src === '') {
+      src = await ImageCache.getImage(url, context);
+    }
+    if (src === '') {
+      return undefined;
+    }
+    const path: string = src.startsWith('file://') ? src.substring('file://'.length) : src;
+    const source: image.ImageSource = image.createImageSource(path);
+    try {
+      const info: image.ImageInfo = await source.getImageInfo();
+      const longest: number = Math.max(info.size.width, info.size.height);
+      let options: image.DecodingOptions | undefined = undefined;
+      if (longest > COVER_MAX_EDGE_PX) {
+        const scale: number = COVER_MAX_EDGE_PX / longest;
+        options = {
+          desiredSize: {
+            width: Math.max(1, Math.round(info.size.width * scale)),
+            height: Math.max(1, Math.round(info.size.height * scale))
+          }
+        };
+      }
+      const cover: image.PixelMap = await source.createPixelMap(options);
+      AvSessionBridge.coverUrl = url;
+      AvSessionBridge.cover = cover;
+      return cover;
+    } finally {
+      source.release();
+    }
   }
 
   /** 用户设置的快进/快退秒数映射到系统支持的档位 */
@@ -367,5 +457,8 @@ export class AvSessionBridge {
     AvSessionBridge.assetId = -1;
     AvSessionBridge.favorite = false;
     AvSessionBridge.pendingState = undefined;
+    AvSessionBridge.coverUrl = '';
+    AvSessionBridge.cover = undefined;
+    AvSessionBridge.coverAssetId = -1;
   }
 }

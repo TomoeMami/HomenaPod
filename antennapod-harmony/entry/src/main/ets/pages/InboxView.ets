@@ -74,7 +74,13 @@ export struct InboxView {
   @State loadedCount: number = 0;
   /** 数据库中全部「新」单集数（多选「全选」的显示依据） */
   @State totalCount: number = 0;
-  @State loading: boolean = true;
+  /**
+   * 首屏整页转圈：只在**屏幕上还没有任何内容**时为真（首次 load 结束即置否）。
+   * 刷新期间反复切它会与空态/列表来回跳，见 build 里的说明。
+   */
+  @State initialLoading: boolean = true;
+  /** 加载互斥闸门（load / loadMore 不并发；不参与渲染，故不是 @State） */
+  private loading: boolean = false;
   @State loadingMore: boolean = false;
   @State hasMore: boolean = false;
   @State message: string = '';
@@ -161,18 +167,17 @@ export struct InboxView {
             .padding({ left: DesignTokens.PAGE_MARGIN, right: DesignTokens.PAGE_MARGIN })
         }
 
-        if (this.loading) {
-          Text($r('app.string.loading'))
-            .fontSize(DesignTokens.FONT_PARAGRAPH)
-            .fontColor($r('app.color.text_tertiary'))
-            .layoutWeight(1)
-        } else if (this.loadedCount === 0) {
+        // 整页转圈只在**首屏还没有任何内容**时出现（initialLoading 一次为真）。
+        // 旧实现每次 load() 都置 loading=true，而整库刷新每抓完一个订阅就广播一次
+        // FEED_LIST_UPDATE → load()，于是空收件箱在刷新期间会以每秒 1 次以上的频率在
+        // 「加载中…」与「收件箱里还没有单集」之间来回跳（上机实测：一次刷新 62 次、
+        // 每次 15~125ms）。刷新中的反馈改由 Refresh 组件的指示器承担（见 listContent）。
+        if (this.initialLoading) {
           Column() {
-            EmptyState({
-              icon: $r('sys.symbol.inbox'),
-              title: $r('app.string.inbox_empty'),
-              sub: $r('app.string.inbox_empty_message')
-            })
+            LoadingProgress()
+              .width(48)
+              .height(48)
+              .color($r('app.color.primary'))
           }
           .width('100%')
           .layoutWeight(1)
@@ -219,6 +224,8 @@ export struct InboxView {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.page_bg'))
+    // 沉浸式状态栏：把页面背景的绘制区延伸到状态栏下（不改布局，内容仍避开状态栏）
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
   }
 
   @Builder
@@ -411,48 +418,63 @@ export struct InboxView {
   @Builder
   listContent() {
     Refresh({ refreshing: this.refreshing }) {
-      List({ space: DesignTokens.SPACE_XS, scroller: this.listScroller }) {
-        LazyForEach(this.dataSource, (item: FeedItem) => {
-          ListItem() {
-            this.episodeRow(item)
-          }
-          // 双向滑动都是「拖到动作区松手即执行」：
-          // 左右两个动作来自设置页配置（`start` = 右滑，`end` = 左滑），未配置的一侧不挂划出项。
-          .swipeAction(this.swipeOptions(item))
-        }, (item: FeedItem) => this.rowKey(item))
-
-        // 无限滚动页脚：还有下一页时显示加载指示（滚到底部自动续读）
-        if (this.hasMore) {
-          ListItem() {
-            Row({ space: DesignTokens.SPACE_S }) {
-              LoadingProgress()
-                .width(20)
-                .height(20)
-                .color($r('app.color.primary'))
-              Text($r('app.string.loading'))
-                .fontSize(DesignTokens.FONT_CAPTION)
-                .fontColor($r('app.color.text_tertiary'))
+      if (this.loadedCount === 0) {
+        // 空态也放进 Refresh 里（上游 episodes_list_fragment.xml 的 SwipeRefreshLayout 常驻）：
+        // 空收件箱刷新时由 Refresh 自己的指示器给反馈，提示文本始终稳定在空态文案上。
+        Column() {
+          EmptyState({
+            icon: $r('sys.symbol.inbox'),
+            title: $r('app.string.inbox_empty'),
+            sub: $r('app.string.inbox_empty_message')
+          })
+        }
+        .width('100%')
+        .height('100%')
+        .justifyContent(FlexAlign.Center)
+      } else {
+        List({ space: DesignTokens.SPACE_XS, scroller: this.listScroller }) {
+          LazyForEach(this.dataSource, (item: FeedItem) => {
+            ListItem() {
+              this.episodeRow(item)
             }
-            .width('100%')
-            .height(48)
-            .justifyContent(FlexAlign.Center)
+            // 双向滑动都是「拖到动作区松手即执行」：
+            // 左右两个动作来自设置页配置（`start` = 右滑，`end` = 左滑），未配置的一侧不挂划出项。
+            .swipeAction(this.swipeOptions(item))
+          }, (item: FeedItem) => this.rowKey(item))
+
+          // 无限滚动页脚：还有下一页时显示加载指示（滚到底部自动续读）
+          if (this.hasMore) {
+            ListItem() {
+              Row({ space: DesignTokens.SPACE_S }) {
+                LoadingProgress()
+                  .width(20)
+                  .height(20)
+                  .color($r('app.color.primary'))
+                Text($r('app.string.loading'))
+                  .fontSize(DesignTokens.FONT_CAPTION)
+                  .fontColor($r('app.color.text_tertiary'))
+              }
+              .width('100%')
+              .height(48)
+              .justifyContent(FlexAlign.Center)
+            }
           }
         }
+        .width('100%')
+        .height('100%')
+        // 左右只留 4vp：上游列表的页面内边距 additional_horizontal_spacing = 0dp，
+        // 行底自身有 4dp inset（bg_episode_list_item），合计封面离屏 16dp
+        .padding({
+          left: DesignTokens.SPACE_XS,
+          right: DesignTokens.SPACE_XS,
+          top: DesignTokens.SPACE_XS,
+          bottom: this.selectMode ? InboxView.SELECT_BAR_SPACE : DesignTokens.SPACE_M
+        })
+        .scrollBar(BarState.Off)
+        .onReachEnd(() => {
+          this.loadMore();
+        })
       }
-      .width('100%')
-      .height('100%')
-      // 左右只留 4vp：上游列表的页面内边距 additional_horizontal_spacing = 0dp，
-      // 行底自身有 4dp inset（bg_episode_list_item），合计封面离屏 16dp
-      .padding({
-        left: DesignTokens.SPACE_XS,
-        right: DesignTokens.SPACE_XS,
-        top: DesignTokens.SPACE_XS,
-        bottom: this.selectMode ? InboxView.SELECT_BAR_SPACE : DesignTokens.SPACE_M
-      })
-      .scrollBar(BarState.Off)
-      .onReachEnd(() => {
-        this.loadMore();
-      })
     }
     .layoutWeight(1)
     .onRefreshing(() => {
@@ -934,6 +956,8 @@ export struct InboxView {
       this.showMessage((error as Error).message);
     } finally {
       this.loading = false;
+      // 首屏内容已经出过（空态也算），之后的重查不再抢整屏
+      this.initialLoading = false;
     }
   }
 

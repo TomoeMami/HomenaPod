@@ -159,6 +159,9 @@ struct Index {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.page_bg'))
+    // 沉浸式状态栏：把外壳背景的绘制区延伸到状态栏下（四个页签共用这层背景；
+    // 内容仍由系统安全区避开状态栏，页签里的标题栏位置不变）
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
   }
 
   /** 「更多」溢出菜单（上游 BottomNavigation 的 ListPopupWindow 内容） */

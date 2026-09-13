@@ -134,6 +134,8 @@ export struct DownloadsPage {
     .width('100%')
     .height('100%')
     .backgroundColor($r('app.color.page_bg'))
+    // 沉浸式状态栏：把页面背景的绘制区延伸到状态栏下（不改布局，内容仍避开状态栏）
+    .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
   }
 
   /** 进行中下载行：进度行 = 已下载大小 + 4vp 进度条 + 百分比；长按打开操作菜单 */
