@@ -537,7 +537,7 @@ export class PlayerManager {
   /**
    * audio.DeviceType -> 策略层的设备类别。
    *
-   * 只映射 API 12 就存在的取值（本工程 compatibleSdkVersion = 5.0.0(12)）：
+   * 只映射本工程最低兼容版本就存在的取值（compatibleSdkVersion = 5.0.2(14)）：
    * 助听器（HEARING_AID）/ NearLink（NEARLINK）是 API 26 才加入的枚举，
    * 这里落到 OTHER —— 它们同样会触发设备丢失暂停（暂停只看原因），只是重连后不走「蓝牙重连」偏好。
    */

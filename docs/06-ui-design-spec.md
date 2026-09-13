@@ -3,7 +3,7 @@
 - 版本：1.1
 - 制定日期：2026-09-09（第 24 轮 UI 改版；第 27 轮按上游 AntennaPod 布局对齐后更新）
 - 适用：`antennapod-harmony/entry/src/main/ets` 全部页面与组件
-- 目标 API：compatibleSdkVersion `5.0.0(12)`（基线 API 12，本机 SDK 26 编译）
+- 目标 API：compatibleSdkVersion `5.0.2(14)`（基线 API 14，本机 SDK 26 编译）
 - 布局基线：上游 AntennaPod 3.12.1（对齐明细与跳过项见 `07-ui-layout-parity.md`）
 
 本规范是**唯一视觉事实来源**：新增页面/组件一律复用本规范的设计令牌与公共组件，

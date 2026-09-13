@@ -1,6 +1,6 @@
 # HomenaPod for HarmonyOS NEXT
 
-HomenaPod 的 HarmonyOS NEXT 原生实现（ArkTS/ArkUI，API 12 兼容基线）。
+HomenaPod 的 HarmonyOS NEXT 原生实现（ArkTS/ArkUI，API 14 兼容基线）。
 来源与许可：本项目是基于 AntennaPod（GPL-3.0）的鸿蒙移植，保留上游许可与归属声明；参考实现：上游 `AntennaPod/AntennaPod`（仅作为移植参考，不提交其 Android 代码）。详见 `NOTICE.md`。
 
 ## 当前状态
@@ -11,7 +11,7 @@ HomenaPod 的 HarmonyOS NEXT 原生实现（ArkTS/ArkUI，API 12 兼容基线）
 
 ## 环境要求
 
-- DevEco Studio 5.x / HarmonyOS 5.0（API 12）
+- DevEco Studio 5.x / HarmonyOS 5.0.2（API 14）
 - Node.js 18+（可选，用于检查工具）
 - DevEco Command Line Tools：`hvigorw`、`ohpm`
 

@@ -74,7 +74,7 @@
 
 | 层 | 选型 |
 |---|---|
-| 平台 | HarmonyOS NEXT，`compatibleSdkVersion` `5.0.0(12)` |
+| 平台 | HarmonyOS NEXT，`compatibleSdkVersion` `5.0.2(14)` |
 | 语言 / UI | ArkTS（严格模式）+ ArkUI 声明式 |
 | 存储 | `relationalStore`（复用 AntennaPod 表结构）+ `preferences` |
 | 播放 | `AVPlayer` + `AVSession` + `AUDIO_PLAYBACK` 长时任务 |

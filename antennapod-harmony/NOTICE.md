@@ -6,7 +6,7 @@
 |---|---|
 | 产品名称 | **HomenaPod** |
 | bundleName | `com.homenapod.app` |
-| 平台 | HarmonyOS NEXT（ArkTS / ArkUI，API 12 兼容基线） |
+| 平台 | HarmonyOS NEXT（ArkTS / ArkUI，API 14 兼容基线） |
 
 ## 二、上游来源
 

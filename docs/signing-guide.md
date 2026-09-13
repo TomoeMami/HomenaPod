@@ -30,7 +30,7 @@ DevEco Studio 菜单：`File > Project Structure > Signing Configs`，勾选 `Au
       {
         "name": "default",
         "signingConfig": "release",
-        "compatibleSdkVersion": "5.0.0(12)",
+        "compatibleSdkVersion": "5.0.2(14)",
         "runtimeOS": "HarmonyOS"
       }
     ]

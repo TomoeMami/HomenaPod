@@ -40,6 +40,33 @@ const TAG_UNTAGGED: string = '\u0001untagged';
 /** 标签胶囊文字截断长度（上游 SubscriptionTagAdapter：>20 截为 19+…） */
 const TAG_TITLE_MAX: number = 20;
 
+/**
+ * 可见区外上下各预加载的行数（Grid.cachedCount 以**行**为单位：两侧各预建 cachedCount × 列数 个瓦片）。
+ *
+ * 实测（模拟器 phone26 / API 26、3 列 5 行一屏）默认不预建任何行：Grid 只构建落在显示区内的行，
+ * 视口底部那条「下一行的顶部」一直是空白，且下一行要等滑进显示区的那一帧才开始创建 ——
+ * 瓦片里的 FeedCover 也到那时才发起取图，观感即「下面空一块，然后整行（连同封面）突然冒出来」。
+ * 预建 3 行（一屏可见 5 行，即官方对 cachedCount 的建议值 n/2，向上取整）后，下面看不见的第一行
+ * 在可见区外就建好、封面也取好了，滑入时首帧即完整。
+ */
+const PRELOAD_GRID_ROWS: number = 3;
+
+/**
+ * 列表模式（列数 = 1）可见区外上下各预加载的条数（List.cachedCount 以**条**为单位）。
+ * 行高约 72vp、一屏约 7 条，4 条即 n/2（向上取整），与本页网格模式的提前量同量级。
+ */
+const PRELOAD_LIST_ROWS: number = 4;
+
+/**
+ * 是否把预建的行**画出来**（`cachedCount(count, show)` 的第二个形参，API 14 起提供）。
+ *
+ * 只预建不绘制时，框架仍按「显示区」决定画哪些行：视口最底下那条（下一行的顶部，实测 33px）
+ * 已经在 Grid 的范围内、也早就建好了，却不画 —— 静止时那里始终是页面底色。置 true 后这些
+ * 越界的预建行会被绘制，再由容器自身的裁剪切掉视口外的部分，底部那条空白随之消失。
+ * 代价是可见区外多画几行（多一次 overdraw），换来滚动时没有空白带。
+ */
+const PRELOAD_SHOW: boolean = true;
+
 /** 每次进入订阅页恢复的滚动位置（对照上游 SubscriptionFragment 的静态 scrollPosition） */
 class SubscriptionsScroll {
   static firstIndex: number = 0;
@@ -216,6 +243,8 @@ export struct SubscriptionsPage {
               }
               .width('100%')
               .height('100%')
+              // 预建并绘制可见区外的若干行，避免下一行在滑入视口的那一帧才创建（见 PRELOAD_LIST_ROWS / PRELOAD_SHOW）
+              .cachedCount(PRELOAD_LIST_ROWS, PRELOAD_SHOW)
               .padding({ left: DesignTokens.PAGE_MARGIN, right: DesignTokens.PAGE_MARGIN, bottom: 88 })
               .scrollBar(BarState.Off)
               .onScrollIndex((first: number) => {
@@ -237,6 +266,8 @@ export struct SubscriptionsPage {
               .rowsGap(DesignTokens.SPACE_XS)
               .width('100%')
               .height('100%')
+              // 预建并绘制可见区外的若干行，避免下一行在滑入视口的那一帧才创建（见 PRELOAD_GRID_ROWS / PRELOAD_SHOW）
+              .cachedCount(PRELOAD_GRID_ROWS, PRELOAD_SHOW)
               .padding({ left: DesignTokens.SPACE_XS, right: DesignTokens.SPACE_XS, bottom: 88 })
               .scrollBar(BarState.Off)
               .onScrollIndex((first: number) => {
