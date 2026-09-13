@@ -34,7 +34,8 @@ export interface HttpResponse {
 }
 
 const DEFAULT_TIMEOUT: number = 20000;
-const DEFAULT_USER_AGENT: string = 'HomenaPod/1.0.0 (HarmonyOS NEXT)';
+/** 抓取订阅时上报的 UA：与 AppScope/app.json5 的 versionName 保持一致 */
+const DEFAULT_USER_AGENT: string = 'HomenaPod/1.0.1 (HarmonyOS NEXT)';
 
 export class HttpClient {
   static async get(url: string, headers: Record<string, string> = {}): Promise<HttpResponse> {
