@@ -243,7 +243,7 @@ export struct QueuePage {
                     this.queueRow(item)
                   }
                   .swipeAction(this.swipeOptions(item))
-                }, (item: FeedItem) => item.id.toString())
+                }, (item: FeedItem) => this.rowKey(item))
               }
               .width('100%')
               .height('100%')
@@ -475,6 +475,27 @@ export struct QueuePage {
         this.lastRowHeight = height;
       }
     })
+  }
+
+  /**
+   * LazyForEach 的行键：**必须把下载状态编进 key**。
+   *
+   * `LazyForEach` 只在 key 变化时重建行，而下载状态与进度存在 `DownloadManager`
+   * 的静态表里（不是 `@State`）：只调 `dataSource.notifyDataChange(index)` 时
+   * ArkUI 认为该行没变，不会重建 `EpisodeRow`，`downloadProgress` / `actionIcon`
+   * 这两个 `@Prop` 也就永远停在首帧——表现为「点下载后图标不变、没有进度环，
+   * 等下载完成才突然变成播放按钮」。`FeedDetailPage.rowKey` 是同一套处理。
+   */
+  private rowKey(item: FeedItem): string {
+    const media: FeedMedia | undefined = this.rowItem(item).media;
+    if (media === undefined) {
+      return item.id.toString();
+    }
+    const state: string = this.downloadState(this.rowItem(item));
+    if (state !== 'RUNNING' && state !== 'PAUSED') {
+      return item.id.toString() + '-' + state;
+    }
+    return item.id.toString() + '-' + state + '-' + DownloadManager.getProgressPercent(media.id).toString();
   }
 
   /**
