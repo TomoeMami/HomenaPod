@@ -12,7 +12,7 @@
 3. **标签（tags as folders）退化为逗号字符串 + 子串匹配**：标签由 `feed.feedTags` 逗号切分（`SubscriptionsPage.ets:361-381`），筛选用 `indexOf`（:376-379）→ 标签 `Tech` 会命中 `Technology`；上游是 `NavDrawerData.TagItem` 精确包含（`SubscriptionFragment.java:391-411`），另有 `TAG_ROOT`/`TAG_UNTAGGED` 与重命名/删除标签菜单（`SubscriptionTagAdapter.java:70-74,104-114`、`TagMenuHandler.java:22-41`）。
 4. **多选批量与归档 Feed 完全缺失**：`FeedMultiSelectActionHandler.java:43-70` 的 9 类批量动作、`Feed.STATE_ARCHIVED` 归档页（`SubscriptionFragment.java:184-196,283-295`、`RemoveFeedDialog.java:81-84,161-168`）在移植版均无实现；`Feed.hide` 字段虽入库（`model/Feed.ets:115`；`FeedRepository.ets:98,149`）但无任何 UI/状态语义。
 5. **单集列表被压缩成「3 个硬编码 chip + 6 项排序 + 5 项长按菜单」**：上游是 6 组可持久化过滤（`ItemFilterDialog.java:42-74` + `FeedItemFilterGroup.java:7-18`）、8 维排序 + 保持排序（`ItemSortDialog.java:30-31,43-50`）、12 项上下文菜单（`res/menu/feeditemlist_context.xml:3-62` + `FeedItemMenuHandler.java:76-131`）；移植版对应 `pages/FeedDetailPage.ets:78-103`、:438-443、:567-603，且 `model/FeedItemFilter.ets` **全仓无调用点**。
-6. **无单集详情页、无分页**：单集点击直接播放（`FeedDetailPage.ets:387-389`），简介只在播放页纯文本弹层（`pages/PlayerPage.ets:416-453,665`）；上游 `ItemFragment` 用 WebView 渲染经 `ShownotesCleaner` 处理的内容（`ui/screen/episode/ItemFragment.java:252-255,432-434`），含时码链接化（`ui/cleaner/ShownotesCleaner.java:36-40,135-190`）。上游每页 150 条（`FeedItemlistFragment.java:88`），移植版一次全量（`EpisodeRepository.ets:44-64`）。
+6. **单集详情页只接到收件箱、仍无分页**：收件箱单击进新增的单集详情页（`pages/EpisodeDetailPage.ets`，第 52 轮，含换行正确的纯文本正文 + 时码可点），其余列表单击仍是直接播放（`FeedDetailPage.ets:387-389`），播放页保留纯文本弹层（`pages/PlayerPage.ets`，同样已修换行/时码）；上游 `ItemFragment` 用 WebView 渲染经 `ShownotesCleaner` 处理的内容（`ui/screen/episode/ItemFragment.java:252-255,432-434`），另有左右滑动换集（`ItemPagerFragment`）与 `PlainTextLinksConverter` 的网址链接化未做。上游每页 150 条（`FeedItemlistFragment.java:88`），移植版一次全量（`EpisodeRepository.ets:44-64`）。
 7. **Feed 设置覆盖 11/15 项，缺 3 项**：缺「编辑 Feed URL」（`EditUrlSettingsDialog.java:28-87`，15 秒确认倒计时）、「重连本地文件夹」（`FeedSettingsPreferenceFragment.java:295-308,369-403`）、「Feed 信息页」（`FeedInfoFragment.java:154-280`）；且移植版是统一「保存」按钮（`FeedSettingsPage.ets:540-560`），上游每项即时写库（`FSPF:181-308`）。
 8. **OPML 双向可用但丢反馈与元数据**：导入逐条订阅、失败只计数（`pages/OpmlPage.ets:280-304`），上游弹含灰色详情的错误框（`activity/OpmlImportActivity.java:248-271`）；导出文件名写死 `homenna-opml.xml`、无日期戳/mimeType（`OpmlPage.ets:306-328` vs `ui/screen/preferences/ImportExportPreferencesFragment.java:67-68`）。
 9. **搜索只保留 iTunes 一路、无去抖**：`net/Discovery.ets:12-30` 仅 iTunes（`limit=30`），fyyd/PodcastIndex 置灰（`AddFeedPage.ets:252-299`）；无 1500ms 去抖（上游 `ui/screen/SearchFragment.java:73`），从订阅详情进入时传入的 `feedId` 被忽略（`FeedDetailPage.ets:198` vs `SearchPage.ets:191-195`）。
@@ -82,7 +82,7 @@
 | 排序对话框 | `ItemSortDialog.java:30-31,43-85`（8 维 + 方向箭头 + 保持排序） | `FeedDetailPage.ets:430-479`（6 项） | 🔸 | 缺 按订阅名/文件大小/文件名/随机/智能乱序；无「保持排序」开关 |
 | 排序持久化与实现 | `FeedPreferences`/`SingleFeedSortDialog.java:68-72`（`DBWriter.setFeedItemSortOrder`，未检出） | `FeedDetailPage.ets:784-796`；`utils/SortUtils.ets:8-31` | 🔸 | 移植版按 feed 存，但排序在内存做（`EpisodeRepository.ets:60-63`） |
 | 行渲染 | `ui/episodeslist/EpisodeItemViewHolder.java:69-111,157-174` | `components/EpisodeRow.ets:35-152` | ✅ | 封面/状态图标行/两行标题/进度行/48vp 次级操作；已播整行 0.5 透明（:143） |
-| 行点击 | `EpisodeItemListAdapter.java:88-104`（进单集详情） | `FeedDetailPage.ets:387-389`（直接播放） | 🔸 | 移植版无单集详情页 |
+| 行点击 | `EpisodeItemListAdapter.java:88-104`（进单集详情） | `FeedDetailPage.ets:387-389`（直接播放）；**收件箱已改为进详情页**（`InboxView.ets` → `pages/EpisodeDetailPage.ets`，第 52 轮） | 🔸 | 移植版新增了单集详情页，但只有收件箱接上；订阅详情等列表仍是单击即播 |
 | 长按菜单 | `res/menu/feeditemlist_context.xml:3-62` + `FeedItemMenuHandler.java:76-131` | `FeedDetailPage.ets:559-619`（5 项） | 🔸 | 缺 跳过本集、移出队列、移出收件箱、重置播放位置、收藏切换、删除单集、多选 |
 | 滑动操作 | `FeedItemlistFragment.java:157,656`；`ui/swipeactions/SwipeActions.java:38-44`（12 种动作可配置） | `FeedDetailPage.ets:157-159,408-428` | 🔸 | 移植版固定「标已播 + 收藏」，不可配置 |
 | 剧集多选 | `EpisodesListFragment.java:207-234,313-321`；`EpisodeMultiSelectActionHandler.java:41-71` | 无 | ⬜ | 移植版无剧集多选（含「标记以上/以下为已播」） |
@@ -114,11 +114,11 @@
 
 | 功能 | 上游实现(file:line) | 移植版实现(file:line) | 状态 | 差异说明 |
 |---|---|---|---|---|
-| 单集详情页 | `ItemFragment.java:251-255,432-434`；`res/layout/feeditem_fragment.xml:213`（ShownotesWebView） | 无 | ⬜ | 简介在播放页弹层（`PlayerPage.ets:416-453`） |
-| Shownotes HTML 清洗 | `ShownotesCleaner.java:36-41,87-106,135-196`（时码链接、`\n`→`<br />`、追加 `<style>`、去 CSS color、`dir=auto`） | `utils/HtmlCleaner.ets:3-19` | 🔸 | 移植版纯文本化，无时码链接、无 CSS 处理、无 WebView |
-| 时间码可点跳转 | `ShownotesCleaner.java:112-120`；`ItemFragment.java:121-149` | 无 | ⬜ | 简介里的 `00:12:34` 不可点 |
+| 单集详情页 | `ItemFragment.java:251-255,432-434`；`res/layout/feeditem_fragment.xml:213`（ShownotesWebView） | `pages/EpisodeDetailPage.ets`（第 52 轮；头部/动作行/正文），入口 = 收件箱单击 | 🔸 | 布局与动作对齐上游（封面+订阅名+标题+时长·日期、播放/下载两个动作、正文）；正文是纯文本降级而非 WebView，且没有左右滑动换集；播放页弹层（`PlayerPage.ets`）保留 |
+| Shownotes HTML 清洗 | `ShownotesCleaner.java:36-41,87-106,135-196`（时码链接、`\n`→`<br />`、追加 `<style>`、去 CSS color、`dir=auto`） | `utils/HtmlCleaner.ets`（换行规则）+ `utils/ShownotesText.ets`（时码分段），第 52 轮 | 🔸 | 换行与时码对齐上游；无 CSS 处理、无 WebView、无 `\n`→`<br />`（纯文本下不需要） |
+| 时间码可点跳转 | `ShownotesCleaner.java:112-120`；`ItemFragment.java:121-149` | `utils/ShownotesText.ets:segments()` + `components/ShownotesBody.ets`（`Span.onClick` → `PlayerManager.seek`），第 52 轮 | ✅ | 同样按「短时码先试 HH:MM、超过时长改 MM:SS」推断，只在时长内链接化；非当前播放项时提示先播放（上游 `play_this_to_seek_position_message`） |
 | URL 自动链接化 | `ui/cleaner/PlainTextLinksConverter.java:19-29,68-116` | 无 | ⬜ | 简介里的网址不可点 |
-| HTML→纯文本 | `ui/cleaner/HtmlToPlainText.java:43-53,85-116` | `HtmlCleaner.ets:3-19`（`PlayerPage.ets:740` 包装） | ✅ | 都做块级换行 + 实体解码；移植版正则更粗（不处理 `li`/`a` 等） |
+| HTML→纯文本 | `ui/cleaner/HtmlToPlainText.java:43-53,85-116` | `utils/HtmlCleaner.ets:stripHtml`（第 52 轮补齐 `p`/`h1`~`h5`/`tr`/`dd`/`dt`/`li`/`br`，另加 `div`） | ✅ | 规则与上游 `FormattingVisitor` 对齐（相邻 `<p>` 之间是空行）；不重建 `<a>` 的裸链接 |
 | 单集间左右滑动翻页 | `ItemPagerFragment.java:45-127,200-216`（ViewPager2） | 无（仅播放页「下一集」按钮） | ⬜ | — |
 | WebView 链接行为/长按菜单 | `ui/view/ShownotesWebView.java:77-84,117-197`（外链一律外部浏览器、长按复制/分享/时码跳转；未启用 JS） | 无 | ⬜ | — |
 | 章节 | `ui/screen/chapter/ChaptersFragment.java`（未检出细节） | `PlayerPage.ets:160-161,356-413,643` | 🔸 | 移植版在播放页做成弹层 |
@@ -163,7 +163,7 @@
 1. **订阅页「过滤/排序」进入死路**：`SubscriptionsPage.ets:203-210` 跳 `FeedSettingsPage(feedId:0, focus:…)`；`FeedSettingsPage.ets:513-519` 只读 `feedId`，`FeedRepository.ets:46-57` 查不到 id=0 → 渲染「订阅失败」（`FeedSettingsPage.ets:63-67`）。
 2. **长按语义反转**：订阅页长按 = 打开设置（`SubscriptionsPage.ets:270-272,308-310`）；上游长按 = 进多选（`SubscriptionsRecyclerAdapter.java:100-106` + `SubscriptionFragment.java:149-150,199`）。
 3. **标签筛选是子串匹配**：`SubscriptionsPage.ets:376-379` 用 `feedTags.indexOf(activeTag)>=0`；上游按 `TagItem` 精确包含（`SubscriptionFragment.java:391-411`）。标签 `Tech` 命中 `Technology`，且大小写敏感。
-4. **单集点击 = 直接播放**：`FeedDetailPage.ets:387-389`；上游打开单集详情（`EpisodeItemListAdapter.java:88-104` → `ItemPagerFragment` → `ItemFragment`）。
+4. **单集点击 = 直接播放（收件箱除外）**：`FeedDetailPage.ets:387-389`；上游打开单集详情（`EpisodeItemListAdapter.java:88-104` → `ItemPagerFragment` → `ItemFragment`）。第 52 轮已给收件箱接上 `pages/EpisodeDetailPage.ets`，订阅详情等列表未改。
 5. **剧集过滤不持久化且只有 3 个硬编码 chip**：`FeedDetailPage.ets:41,78-103`；上游 6 组可持久化（`ItemFilterDialog.java:42-74` + `FeedItemFilterGroup.java:7-18`），移植版 `model/FeedItemFilter.ets` 无调用点。
 6. **排序维度缩水 + 内存排序**：`FeedDetailPage.ets:438-443`（6 项）vs `ItemSortDialog.java:43-50`（8 维 + 保持排序 :30-31）；移植版先按 `pubdate` 取全量再内存排序（`EpisodeRepository.ets:60-63`、`SortUtils.ets:8-31`）。
 7. **无分页 + N+1 查询**：上游每页 150（`FeedItemlistFragment.java:88`）；移植版 `EpisodeRepository.ets:44-64` 取全表，并逐条查 media（:57-59）。

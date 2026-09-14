@@ -15,8 +15,10 @@ import { FavoritesRepository } from '../db/repositories/FavoritesRepository';
 import { UserPreferences } from '../prefs/UserPreferences';
 import { EventHub, EventType, SleepTimerData } from '../events/EventHub';
 import { DurationUtils } from '../utils/DurationUtils';
+import { ShownotesSegment, ShownotesText } from '../utils/ShownotesText';
 import { DesignTokens } from '../common/DesignTokens';
 import { FeedCover } from '../components/FeedCover';
+import { ShownotesBody } from '../components/ShownotesBody';
 
 /**
  * 播放页（对齐上游 audioplayer_fragment.xml + cover_fragment.xml）：
@@ -28,7 +30,12 @@ import { FeedCover } from '../components/FeedCover';
 struct PlayerPage {
   @State title: string = '';
   @State feedTitle: string = '';
-  @State description: string = '';
+  /**
+   * 节目详情正文（已切段：普通文本 + 可点时间码）。
+   * 旧实现存的是 `plainText()` 压过空白的**单段纯文本**，`<br>`/`<p>` 与真实换行
+   * 全被压成空格（「节目详情没有换行」的根因）。
+   */
+  @State notesSegments: ShownotesSegment[] = [];
   @State status: string = 'IDLE';
   @State playPosition: number = 0;
   @State duration: number = 0;
@@ -426,10 +433,20 @@ struct PlayerPage {
         .padding({ top: DesignTokens.SPACE_L })
 
       Scroll() {
-        Text(this.description === '' ? $r('app.string.setting_not_set') : this.description)
-          .fontSize(DesignTokens.FONT_PARAGRAPH)
-          .fontColor($r('app.color.text_primary'))
-          .width('100%')
+        if (this.notesSegments.length === 0) {
+          Text($r('app.string.no_shownotes_label'))
+            .fontSize(DesignTokens.FONT_PARAGRAPH)
+            .fontColor($r('app.color.text_secondary'))
+            .width('100%')
+        } else {
+          // 与单集详情页共用同一段落渲染：保留换行 + 时长内的时间码可点跳转
+          ShownotesBody({
+            segments: this.notesSegments,
+            onTimecode: (timeMs: number) => {
+              this.seekToTimecode(timeMs);
+            }
+          })
+        }
       }
       .height(320)
       .width('100%')
@@ -664,16 +681,31 @@ struct PlayerPage {
   async loadItem(feedItemId: number): Promise<void> {
     try {
       const item: FeedItem | undefined = await EpisodeRepository.getById(feedItemId);
-      this.description = item === undefined ? '' : PlayerPage.plainText(item.description);
+      const description: string = item === undefined ? '' : item.description;
+      const duration: number = item === undefined || item.media === undefined ? 0 : item.media.duration;
+      this.notesSegments = ShownotesText.segments(description, duration);
       this.favorite = await FavoritesRepository.isFavorite(feedItemId);
       // 兜底：播放对象未带封面时（旧播放路径）用库里的单集封面
       if (this.coverUrl === '' && item !== undefined && item.imageUrl !== '') {
         this.coverUrl = item.imageUrl;
       }
     } catch (error) {
-      this.description = '';
+      this.notesSegments = [];
       this.favorite = false;
     }
+  }
+
+  /**
+   * 点按正文里的时间码（上游 `ShownotesWebView.setTimecodeSelectedListener`）：
+   * 播放页上的正文永远属于当前播放项，直接 seek；播放器空载时不响应。
+   */
+  seekToTimecode(timeMs: number): void {
+    if (PlayerManager.getCurrent() === undefined) {
+      this.message = getContext(this).resourceManager
+        .getStringSync($r('app.string.play_this_to_seek_position_message'));
+      return;
+    }
+    PlayerManager.seek(timeMs);
   }
 
   async toggleFavorite(): Promise<void> {
@@ -740,14 +772,6 @@ struct PlayerPage {
     } catch (error) {
       this.message = (error as Error).message;
     }
-  }
-
-  /** 描述文本去标签（上游用 WebView 渲染 HTML，这里做纯文本降级） */
-  static plainText(html: string): string {
-    if (html === '') {
-      return '';
-    }
-    return html.replace(/<[^>]+>/g, ' ').replace(/\s+/g, ' ').trim();
   }
 
   /** 计时到点且勾选"本章结束停止"时，在章节边界暂停 */

@@ -4,6 +4,7 @@
     "pages/PlayerSmokePage",
     "pages/AddFeedPage",
     "pages/FeedDetailPage",
+    "pages/EpisodeDetailPage",
     "pages/FeedSettingsPage",
     "pages/PlayerPage",
     "pages/SearchPage",

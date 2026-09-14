@@ -61,7 +61,8 @@ interface InboxMenuItem {
  * 手势（对照上游 SwipeActions：位移到位松手即执行，不是先弹回再点按钮）：
  * 右滑（`start` 划出项）/ 左滑（`end` 划出项）的动作取自设置页的「滑动动作」偏好，
  * 默认右滑 = 加入队列、左滑 = 移出收件箱；长按 = 上下文操作弹层（含多选）；
- * 单击 = 播放（上游是单集详情页，本移植版没有该页，见 docs/07-ui-layout-parity.md 第 35 条）。
+ * 单击 = 打开单集详情页（对齐上游 `EpisodeItemListAdapter` → `ItemPagerFragment`，
+ * 播放由详情页的主操作或行内次级按钮触发）。
  *
  * 分页（对齐上游 EpisodesListFragment 的无限滚动）：首屏只取一页，
  * 列表用 LazyForEach 惰性渲染，滚到底部再取下一页——OPML 导入上千条新单集时
@@ -506,7 +507,9 @@ export struct InboxView {
         if (this.selectMode) {
           this.toggleSelected(item.id);
         } else {
-          this.play(item);
+          // 单击 = 打开单集详情页（上游 EpisodeItemListAdapter.onBindViewHolder：
+          // 单击行 → ItemPagerFragment；播放由详情页的主操作或行内次级按钮触发）
+          this.openDetail(item);
         }
       },
       onAction: () => {
@@ -1244,7 +1247,12 @@ export struct InboxView {
 
   // ---------------------------------------------------------------- 行内动作
 
-  /** 单击 = 播放（上游是单集详情页，本移植版没有该页） */
+  /** 单击 = 打开单集详情页（上游 `ItemPagerFragment`；播放由详情页的主操作或行内次级按钮触发） */
+  openDetail(item: FeedItem): void {
+    router.pushUrl({ url: 'pages/EpisodeDetailPage', params: { itemId: item.id } });
+  }
+
+  /** 播放（行内次级按钮 / 长按菜单路径用；详情页的主操作用的是同一个播放入口） */
   async play(item: FeedItem): Promise<void> {
     if (item.media === undefined) {
       return;

@@ -78,7 +78,7 @@
 | 每 Feed 音量适配 | `ui/screen/feed/preferences/VolumeAdaptationPreference.java:20-27` | `pages/FeedSettingsPage.ets:172-175,585-604`；`player/PlayerManager.ets:234-254` | 🔸 简化/替代 | 档位 `[0,0.75,1.25,1.5]`；**>1.0 被 clamp 到 1.0**（AVPlayer 无增益） |
 | 每 Feed 播放倍速设置 | `FeedSettingsPreferenceFragment`（速度项，未逐行核对） | `pages/FeedSettingsPage.ets:167-170,578-583` | 🔸 简化/替代 | 档位 `[0]+SPEED_PRESETS`，0 表示「未设置」走全局 |
 | 队列信息条剩余时长 | `QueueFragment.java:502-523`（`timeRespectsSpeed`） | `pages/QueuePage.ets:426-444` | 🔸 简化/替代 | 不按倍速折算，无 `prefTimeRespectsSpeed`（`UserPreferences.java:791-793`） |
-| 节目详情（shownotes） | `audio/ItemDescriptionFragment.java:44,129,173`（WebView 加载 HTML + 滚动置顶） | `pages/PlayerPage.ets:417-453,740-745` | 🔸 简化/替代 | 去标签转纯文本，丢失链接/图片/格式 |
+| 节目详情（shownotes） | `audio/ItemDescriptionFragment.java:44,129,173`（WebView 加载 HTML + 滚动置顶） | `pages/PlayerPage.ets`（弹层）+ `utils/ShownotesText.ets` + `components/ShownotesBody.ets`（第 52 轮） | 🔸 简化/替代 | 去标签转纯文本但**保留换行**（`<br>`/`<p>`/`li`…），时长内的时间码可点跳转（上游 `ShownotesCleaner` 同款推断）；仍无链接/图片/样式 |
 | 时间文本不重排 | `audio/NoRelayoutTextView.java:26-48` | `pages/PlayerPage.ets:184-192` | ⬜ 缺失 | 无等价控件，时间变化触发重新布局 |
 | 播放页菜单项 | `app/src/main/res/menu/mediaplayer.xml:5-96`（12 项） | `pages/PlayerPage.ets:55-106`（4 个图标） | 🔸 简化/替代 | 缺 open_podcast/visit_website/audio_controls/transcript/social/switch_to_audio_only 等 |
 

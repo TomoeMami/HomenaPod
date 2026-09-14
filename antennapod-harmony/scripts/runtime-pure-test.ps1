@@ -32,7 +32,7 @@ New-Item -ItemType Directory -Path (Join-Path $work 'model'), (Join-Path $work '
 
 $models = @('Enums','Feed','FeedItem','FeedMedia','FeedPreferences','Chapter','Playable','QueueItem',
             'DownloadLogEntry','FeedFilter','FeedItemFilter')
-$utils = @('DurationUtils','DateUtils','MimeTypeUtils','HtmlCleaner','SortUtils','InboxBaseline')
+$utils = @('DurationUtils','DateUtils','MimeTypeUtils','HtmlCleaner','ShownotesText','SortUtils','InboxBaseline')
 $parser = @('XmlReader','FeedParser')
 # player 下只有「纯逻辑」文件能进这里：不 import 任何 @kit.*（OutputDevicePolicy 便是如此）
 $player = @('OutputDevicePolicy')
@@ -68,6 +68,7 @@ const { DurationUtils } = require('./utils/DurationUtils.js');
 const { DateUtils } = require('./utils/DateUtils.js');
 const { MimeTypeUtils } = require('./utils/MimeTypeUtils.js');
 const { HtmlCleaner } = require('./utils/HtmlCleaner.js');
+const { ShownotesText } = require('./utils/ShownotesText.js');
 const { SortUtils } = require('./utils/SortUtils.js');
 const { MediaType, SortOrder } = require('./model/Enums.js');
 const { Playable } = require('./model/Playable.js');
@@ -288,6 +289,81 @@ assert.strictEqual(OutputDevicePolicy.isHeadset(DeviceClasses.BUILT_IN), false);
 assert.strictEqual(OutputDevicePolicy.isHeadset(DeviceClasses.OTHER), false);
 assert.strictEqual(OutputDevicePolicy.isBluetooth(DeviceClasses.BLUETOOTH), true);
 assert.strictEqual(OutputDevicePolicy.isBluetooth(DeviceClasses.WIRED), false);
+
+// ---- 节目详情（shownotes）：去标签保留换行 + 时间码识别 ----
+// 换行：旧的 PlayerPage.plainText 把标签换成空格后 `\s+` → ' '，<br>/<p>/真实换行全被吃掉
+assert.strictEqual(HtmlCleaner.stripHtml('a<br>b'), 'a\nb');
+assert.strictEqual(HtmlCleaner.stripHtml('a<br/>b'), 'a\nb');
+// 相邻两个 <p>：上游 head 与 tail 各补一个换行，所以段间是空行
+assert.strictEqual(HtmlCleaner.stripHtml('<p>a</p><p>b</p>'), 'a\n\nb');
+assert.strictEqual(HtmlCleaner.stripHtml('<p style="color:red">a</p>'), 'a');
+assert.strictEqual(HtmlCleaner.stripHtml('<div>a</div><div>b</div>'), 'a\n\nb');
+assert.strictEqual(HtmlCleaner.stripHtml('<h2>标题</h2>正文'), '标题\n正文');
+assert.strictEqual(HtmlCleaner.stripHtml('<ul><li>一</li><li>二</li></ul>'), '* 一\n* 二');
+assert.strictEqual(HtmlCleaner.stripHtml('第一行\n第二行'), '第一行\n第二行');
+assert.strictEqual(HtmlCleaner.stripHtml('<p>a<br>b</p><p>c</p>'), 'a\nb\n\nc');
+assert.strictEqual(HtmlCleaner.stripHtml('  <p>  a  </p>  '), 'a');
+
+// 时间码：只有落在单集时长之内的才转成可点段（上游 `if (time < playableDuration)`）
+const notesShort = ShownotesText.segments('开场 00:30 正题 12:00', 60000);
+assert.strictEqual(notesShort.length, 3);
+assert.strictEqual(notesShort[1].text, '00:30');
+assert.strictEqual(notesShort[1].timeMs, 30000);
+assert.strictEqual(notesShort[2].timeMs, ShownotesText.NO_TIME);
+// 带小时的时码按 h:mm:ss 解析
+assert.strictEqual(ShownotesText.segments('跳到 1:02:03', 7200000)[1].timeMs, 3723000);
+// 短时码默认按 HH:MM 解析（上游 useHourFormat）：整集 2 小时时 12:00 = 12 小时 0 分 > 时长，
+// 于是整篇改按 MM:SS → 12:00 应落在 12 分钟处（而不是不可点）
+assert.strictEqual(ShownotesText.segments('12:00', 7200000)[0].timeMs, 720000);
+// 若有一个短时码按 HH:MM 解析就超过时长，则整篇改按 MM:SS 解析
+const notesMinute = ShownotesText.segments('00:30 和 12:00', 1800000);
+assert.strictEqual(notesMinute[0].text, '00:30');
+assert.strictEqual(notesMinute[0].timeMs, 30000);
+assert.strictEqual(notesMinute[2].text, '12:00');
+assert.strictEqual(notesMinute[2].timeMs, 720000);
+// 时长未知（<=0）时与上游 `Integer.MAX_VALUE` 等价：全部按 HH:MM 且都可点
+assert.strictEqual(ShownotesText.segments('00:30', 0)[0].timeMs, 1800000);
+// 分段拼回原文（含换行；相邻 <p> 之间是空行），不丢字符
+const notesRound = ShownotesText.segments('<p>第一段 00:10</p><p>第二段 01:00</p>', 600000);
+assert.strictEqual(ShownotesText.toPlainText(notesRound), '第一段 00:10\n\n第二段 01:00');
+assert.strictEqual(ShownotesText.segments('', 1000).length, 0);
+assert.strictEqual(ShownotesText.segments('没有时码', 1000)[0].timeMs, ShownotesText.NO_TIME);
+
+// ---- 单集简介取「最长者」（上游 FeedItem.setDescriptionIfLonger）----
+const descRss = '<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/">'
+  + '<channel><title>C</title>'
+  + '<item><title>e</title><guid>g1</guid>'
+  + '<description>短摘要</description>'
+  + '<content:encoded><![CDATA[<p>完整 shownotes</p><p>第二段</p>]]></content:encoded>'
+  + '</item>'
+  + '<item><title>e2</title><guid>g2</guid>'
+  + '<content:encoded><![CDATA[<p>完整 shownotes 先出现</p>]]></content:encoded>'
+  + '<description>短</description>'
+  + '</item></channel></rss>';
+const descParsed = FeedParser.parseFeed(descRss);
+// 后到的短摘要不能覆盖先到的 content:encoded（旧实现是「后到覆盖先到」）
+assert.strictEqual(descParsed.feed.items[0].description.indexOf('完整 shownotes') >= 0, true);
+assert.strictEqual(descParsed.feed.items[0].description.indexOf('短摘要') >= 0, false);
+assert.strictEqual(descParsed.feed.items[1].description, '<p>完整 shownotes 先出现</p>');
+// Atom：summary 通常排在 content 之后，完整正文不能被短摘要顶掉
+const descAtom = '<?xml version="1.0"?><feed xmlns="http://www.w3.org/2005/Atom"><title>F</title>'
+  + '<entry><title>t</title><id>i1</id>'
+  + '<content type="html">&lt;p&gt;完整正文&lt;/p&gt;</content>'
+  + '<summary>摘要</summary>'
+  + '</entry></feed>';
+const atomParsed = FeedParser.parseFeed(descAtom);
+assert.strictEqual(atomParsed.feed.items[0].description, '<p>完整正文</p>');
+// 没有 content:encoded 时仍取 description（回归）
+assert.strictEqual(FeedParser.parseFeed(
+  '<rss version="2.0"><channel><title>C</title>'
+  + '<item><title>e</title><guid>g</guid><description>只有摘要</description></item>'
+  + '</channel></rss>').feed.items[0].description, '只有摘要');
+// itunes:summary 比 description 长时胜出
+assert.strictEqual(FeedParser.parseFeed(
+  '<rss version="2.0" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd"><channel><title>C</title>'
+  + '<item><title>e</title><guid>g</guid><description>短</description>'
+  + '<itunes:summary>itunes 里的长摘要</itunes:summary></item>'
+  + '</channel></rss>').feed.items[0].description, 'itunes 里的长摘要');
 
 console.log('RUNTIME PURE LOGIC TESTS PASSED');
 '@ | Set-Content $runJs -Encoding UTF8

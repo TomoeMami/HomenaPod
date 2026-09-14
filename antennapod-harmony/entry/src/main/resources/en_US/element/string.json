@@ -1523,6 +1523,26 @@
     {
       "name": "setting_unpause_on_bluetooth_reconnect",
       "value": "Resume when Bluetooth reconnects"
+    },
+    {
+      "name": "episode_detail_title",
+      "value": "Episode details"
+    },
+    {
+      "name": "episode_stream",
+      "value": "Stream"
+    },
+    {
+      "name": "no_shownotes_label",
+      "value": "No episode description available"
+    },
+    {
+      "name": "no_media_label",
+      "value": "No media"
+    },
+    {
+      "name": "play_this_to_seek_position_message",
+      "value": "Play this episode to jump to that position"
     }
   ]
 }

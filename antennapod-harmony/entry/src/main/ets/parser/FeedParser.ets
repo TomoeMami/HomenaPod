@@ -22,6 +22,9 @@ export interface ParseResult {
 
 const knownElements: Set<string> = new Set<string>([
   'rss', 'feed', 'channel', 'item', 'entry', 'title', 'description', 'summary', 'subtitle',
+  // 单集简介的完整来源（上游 FeedItem.setDescriptionIfLonger 的全部调用点）：
+  // RSS 的 description 往往只是短摘要，完整 shownotes 在 content:encoded / Atom 的 content 里
+  'content:encoded', 'content', 'itunes:summary', 'itunes:subtitle', 'media:description',
   'language', 'author', 'itunes:author', 'link', 'atom:link', 'image', 'url', 'logo',
   'id', 'guid', 'pubdate', 'published', 'updated', 'enclosure', 'media:content',
   'media:thumbnail', 'media:group',
@@ -175,8 +178,13 @@ export class FeedParser {
           currentItem.itemIdentifier = text;
         } else if (lower === 'pubdate' || lower === 'published' || lower === 'updated') {
           currentItem.pubDate = DateUtils.parseToEpochMillis(text);
-        } else if (lower === 'description' || lower === 'summary' || lower === 'subtitle') {
-          currentItem.description = text;
+        } else if (lower === 'description' || lower === 'summary' || lower === 'subtitle'
+          || lower === 'content:encoded' || lower === 'content'
+          || lower === 'itunes:summary' || lower === 'itunes:subtitle'
+          || lower === 'media:description') {
+          // 旧实现是 `currentItem.description = text`（后到的覆盖先到的）：
+          // Atom 里 summary 通常排在 content 之后，完整 shownotes 会被短摘要覆盖
+          FeedParser.keepLongerDescription(currentItem, text);
         } else if (lower === 'url' && inImage) {
           if (text !== '') {
             currentItem.imageUrl = text;
@@ -252,6 +260,18 @@ export class FeedParser {
       item.imageUrl = url;
     } else {
       feed.imageUrl = url;
+    }
+  }
+
+  /**
+   * 上游 `FeedItem.setDescriptionIfLonger`：单集简介取「最长者」。
+   * 上游的全部调用点（RSS `description` / `content:encoded` / Atom `content`+`summary` /
+   * `itunes:summary`+`itunes:subtitle` / `media:description`）都走这一条，
+   * 本移植版同样按名匹配这些元素后统一收敛到这里。
+   */
+  private static keepLongerDescription(item: FeedItem, text: string): void {
+    if (text.length > item.description.length) {
+      item.description = text;
     }
   }
 

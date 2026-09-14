@@ -1523,6 +1523,26 @@
     {
       "name": "setting_unpause_on_bluetooth_reconnect",
       "value": "蓝牙重连时恢复播放"
+    },
+    {
+      "name": "episode_detail_title",
+      "value": "单集详情"
+    },
+    {
+      "name": "episode_stream",
+      "value": "在线播放"
+    },
+    {
+      "name": "no_shownotes_label",
+      "value": "这一集没有节目详情"
+    },
+    {
+      "name": "no_media_label",
+      "value": "没有音频"
+    },
+    {
+      "name": "play_this_to_seek_position_message",
+      "value": "请先播放这一集，再跳转到该位置"
     }
   ]
 }
