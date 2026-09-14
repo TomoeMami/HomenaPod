@@ -333,9 +333,18 @@ export class QueueEngine {
     if (target === undefined) {
       return;
     }
-    const playable: Playable | undefined = await QueueEngine.toPlayable(target);
+    // 续播位置必须取**库里最新**的那份：`QueueEngine.items` 是上一次 load() 的快照，
+    // 这一集的进度可能在快照之后又被写过（如刚听了一半就切走）。
+    const fresh: FeedItem | undefined = await EpisodeRepository.getById(target.id);
+    const chosen: FeedItem = fresh !== undefined ? fresh : target;
+    const playable: Playable | undefined = await QueueEngine.toPlayable(chosen);
     if (playable !== undefined) {
-      await PlayerManager.load(playable, 0, true);
+      // 连播的下一集若「听了一半」（对照上游 FeedMedia.getPosition + FeedItem.isInProgress），
+      // 必须接着上次的位置播：自动连播原先固定传 0，把下一集已有的进度清零、
+      // 从头开始放（而手动点「下一个」传的是 media.position，两者行为不一致）。
+      // 位置停在结尾（已播完）或从未播过的一集仍从头开：续播到结尾会立刻走完并再次连播。
+      const startPosition: number = chosen.isInProgress() ? playable.position : 0;
+      await PlayerManager.load(playable, startPosition, true);
     }
   }
 

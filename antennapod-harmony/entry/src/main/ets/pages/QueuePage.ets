@@ -125,6 +125,16 @@ export struct QueuePage {
   /** 拖拽开始时被拖行槽位顶部相对列表内容的偏移（vp）与列表滚动偏移（vp） */
   private dragStartTop: number = 0;
   private dragScrollY: number = 0;
+  /**
+   * 手势开始以来的手指累计位移（vp）。
+   * `moveHandleDrag` 里本可以只用形参，但边缘自动滚动的定时器**没有新的手势事件**，
+   * 它必须拿着这个值重算换位，所以单独存一份。
+   */
+  private dragOffsetY: number = 0;
+  /** 拖拽边缘自动滚动的定时器 id（-1 = 未在滚动） */
+  private dragScrollTimerId: number = -1;
+  /** 列表内容区的可视高度（vp，由内容区 Stack 的 onAreaChange 上报） */
+  private listViewportHeight: number = 0;
   /** 每行实测高度（vp，由 EpisodeRow 的 onAreaChange 上报）：换位阈值按真实行高计算 */
   private rowHeights: Map<number, number> = new Map<number, number>();
   /** 最近一次实测到的行高（vp）：未测量过的行按它兜底（见 rowHeightOf） */
@@ -166,6 +176,15 @@ export struct QueuePage {
   private static readonly FALLBACK_ROW_HEIGHT: number = 80;
   /** 相邻行让位动画时长（ms） */
   private static readonly SLOT_MOVE_DURATION: number = 180;
+  /**
+   * 拖拽边缘自动滚动的触发边距（vp）：被拖行中心进入列表上/下这 72vp 内就开始滚动
+   * （对照上游 ItemTouchHelper 的 dragScrollThreshold，这里取手感相近的值）。
+   */
+  private static readonly DRAG_EDGE_ZONE: number = 72;
+  /** 拖拽边缘自动滚动的最大步长（vp/拍）；16ms 一拍 ≈ 最快 500vp/s */
+  private static readonly DRAG_SCROLL_MAX_STEP: number = 8;
+  /** 拖拽边缘自动滚动的拍间隔（ms） */
+  private static readonly DRAG_SCROLL_INTERVAL: number = 16;
   /** 操作弹层最大高度（vp），超出可滚 */
   private static readonly SHEET_MAX_HEIGHT: number = 460;
 
@@ -261,6 +280,13 @@ export struct QueuePage {
             .width('100%')
             .height('100%')
             .clip(true)
+            // 记录可视高度：拖拽边缘自动滚动要按「被拖行中心距上/下边缘多远」决定滚不滚、滚多快
+            .onAreaChange((_oldArea: Area, newArea: Area) => {
+              const height: Length = newArea.height;
+              if (typeof height === 'number' && height > 0) {
+                this.listViewportHeight = height;
+              }
+            })
           }
           .layoutWeight(1)
           .onRefreshing(() => {
@@ -559,11 +585,22 @@ export struct QueuePage {
     this.dragIndex = index;
     this.dragReordered = false;
     this.dragConsumed = 0;
+    this.dragOffsetY = 0;
     this.dragStartTop = this.slotOffset(index);
-    this.dragScrollY = this.listScroller.currentOffset().yOffset;
+    this.dragScrollY = this.listScrollOffset();
     this.dragItem = this.items[index];
     this.dragOverlayY = this.dragStartTop - this.dragScrollY;
+    this.stopDragAutoScroll();
     return true;
+  }
+
+  /** 列表当前滚动偏移（vp）；列表尚未绑定等异常情况下退回拖拽开始时的值 */
+  private listScrollOffset(): number {
+    try {
+      return this.listScroller.currentOffset().yOffset;
+    } catch (error) {
+      return this.dragScrollY;
+    }
   }
 
   /**
@@ -578,8 +615,11 @@ export struct QueuePage {
    * 位移量就是邻行的「高度 + 间距」。取错会在每次换位后留下
    * `|自己被拖行高 - 邻行高|` 的残差，多次换位逐次累积 → 越拖越偏。
    * 增量取对之后，每次换位恰好发生在「被拖行中心 = 目标槽位中心」处，残差不会累积。
+   *
+   * `contentOffsetY` 是手指在**列表内容坐标**里的累计位移 = 手势位移 + 拖拽开始以来的
+   * 滚动量：边缘自动滚动时手指不动、内容在动，只拿手势位移会漏掉滚动带来的这一段。
    */
-  private moveHandleDrag(itemId: number, offsetY: number): void {
+  private applyDragReorder(itemId: number, contentOffsetY: number): void {
     if (this.dragId !== itemId) {
       return;
     }
@@ -593,7 +633,7 @@ export struct QueuePage {
     while (true) {
       if (index < this.items.length - 1) {
         const next: number = this.rowHeightOf(this.items[index + 1]);
-        if (offsetY - this.dragConsumed >= (dragged + next) / 2 + space) {
+        if (contentOffsetY - this.dragConsumed >= (dragged + next) / 2 + space) {
           this.moveSlot(index, index + 1);
           this.dragConsumed += next + space;
           index++;
@@ -603,7 +643,7 @@ export struct QueuePage {
       }
       if (index > 0) {
         const prev: number = this.rowHeightOf(this.items[index - 1]);
-        if (offsetY - this.dragConsumed <= -((dragged + prev) / 2 + space)) {
+        if (contentOffsetY - this.dragConsumed <= -((dragged + prev) / 2 + space)) {
           this.moveSlot(index, index - 1);
           this.dragConsumed -= prev + space;
           index--;
@@ -614,8 +654,107 @@ export struct QueuePage {
       break;
     }
     this.dragIndex = index;
-    // 浮层严格跟手：原槽位 + 手势累计位移（与换位无关，换位只影响列表里的槽位）
+  }
+
+  /** 手指位移 → 列表内容坐标里的位移（加上拖拽开始以来的滚动量） */
+  private dragContentOffset(offsetY: number): number {
+    return offsetY + (this.listScrollOffset() - this.dragScrollY);
+  }
+
+  /**
+   * 手指拖动：换位判断 + 浮层跟手 + 边缘自动滚动。
+   *
+   * 浮层坐标始终按「原槽位 − 拖拽开始时的滚动 + 手势累计位移」算，**不随自动滚动变化**：
+   * 浮层挂在列表外的 Stack 上、用的是视口坐标，滚动只是让列表内容从它下面走过去。
+   */
+  private moveHandleDrag(itemId: number, offsetY: number): void {
+    if (this.dragId !== itemId) {
+      return;
+    }
+    this.dragOffsetY = offsetY;
+    this.applyDragReorder(itemId, this.dragContentOffset(offsetY));
     this.dragOverlayY = this.dragStartTop - this.dragScrollY + offsetY;
+    this.updateDragAutoScroll();
+  }
+
+  /**
+   * 按「被拖行中心在视口里的位置」决定是否要自动滚动：靠近上/下边缘时启表，回到中间停表。
+   * 手指不动时本方法不会再被手势事件调用，所以这件事只能由 {@link onDragScrollTick} 自己维持。
+   */
+  private updateDragAutoScroll(): void {
+    if (this.dragEdgeScrollStep() === 0) {
+      this.stopDragAutoScroll();
+      return;
+    }
+    if (this.dragScrollTimerId >= 0) {
+      return;
+    }
+    this.dragScrollTimerId = setInterval(() => {
+      this.onDragScrollTick();
+    }, QueuePage.DRAG_SCROLL_INTERVAL);
+  }
+
+  private stopDragAutoScroll(): void {
+    if (this.dragScrollTimerId >= 0) {
+      clearInterval(this.dragScrollTimerId);
+      this.dragScrollTimerId = -1;
+    }
+  }
+
+  /**
+   * 本拍要滚动的量（vp，负 = 向上滚）：被拖行中心越贴近边缘滚得越快，边距之外为 0。
+   * 到顶/到底不必在这里夹：`scrollTo` 无动画，超出边界的值由 List 自己夹住且不会回弹。
+   */
+  private dragEdgeScrollStep(): number {
+    const height: number = this.listViewportHeight;
+    const dragged: FeedItem | undefined = this.dragItem;
+    if (height <= 0 || dragged === undefined) {
+      return 0;
+    }
+    // 被拖行在视口里的中心：浮层顶 + 半个行高（浮层的 y 就是视口坐标）
+    const center: number = this.dragOverlayY + this.rowHeightOf(dragged) / 2;
+    const zone: number = QueuePage.DRAG_EDGE_ZONE;
+    if (center < zone) {
+      const depth: number = (zone - center) / zone;
+      return -QueuePage.DRAG_SCROLL_MAX_STEP * Math.min(1, depth);
+    }
+    if (center > height - zone) {
+      const depth: number = (center - (height - zone)) / zone;
+      return QueuePage.DRAG_SCROLL_MAX_STEP * Math.min(1, depth);
+    }
+    return 0;
+  }
+
+  /**
+   * 自动滚动的一拍。
+   *
+   * 换位判断一律基于**实际滚动偏移**（读回来的值）而不是本拍请求的目标：
+   * 到底被夹住时用请求值会多算一小段，可能多换一格、下一拍读到实际值又换回来（抖动）。
+   * 读回来的值天然是单调的，最多让换位晚一拍（16ms），肉眼不可见。
+   */
+  private onDragScrollTick(): void {
+    const itemId: number = this.dragId;
+    if (itemId < 0) {
+      this.stopDragAutoScroll();
+      return;
+    }
+    const actual: number = this.listScrollOffset();
+    this.applyDragReorder(itemId, this.dragOffsetY + (actual - this.dragScrollY));
+    const step: number = this.dragEdgeScrollStep();
+    if (step === 0) {
+      // 手指已离开边缘（或列表高度未知）：停表，等下一次手势事件重新判断
+      this.stopDragAutoScroll();
+      return;
+    }
+    let target: number = actual + step;
+    if (target < 0) {
+      target = 0;
+    }
+    try {
+      this.listScroller.scrollTo({ xOffset: 0, yOffset: target });
+    } catch (error) {
+      this.stopDragAutoScroll();
+    }
   }
 
   /** 被拖行当前下标：以 `dragIndex` 为准，失效（被拖行已不在该槽位）时才按 id 回查纠正 */
@@ -650,6 +789,9 @@ export struct QueuePage {
     this.dragIndex = -1;
     this.dragItem = undefined;
     this.dragConsumed = 0;
+    this.dragOffsetY = 0;
+    // 松手必须停掉边缘自动滚动的定时器，否则手指抬起后列表还会自己往下滚
+    this.stopDragAutoScroll();
     if (!this.dragReordered) {
       return;
     }
@@ -1306,6 +1448,8 @@ export struct QueuePage {
       clearTimeout(this.messageTimerId);
       this.messageTimerId = -1;
     }
+    // 拖拽边缘自动滚动的定时器随页面一起收掉（页面被销毁后 clearInterval 仍会执行，必须停）
+    this.stopDragAutoScroll();
     // 记住滚动位置（上游 onPause 存 SCROLL_POSITION_KEY / SCROLL_OFFSET_KEY）
     try {
       const offset: OffsetResult = this.listScroller.currentOffset();
