@@ -11,6 +11,7 @@ import { EventHub, EventType, FeedItemUpdateData, EpisodeDownloadData } from '..
 import { DurationUtils } from '../utils/DurationUtils';
 import { DesignTokens } from '../common/DesignTokens';
 import { menuIcon } from '../common/MenuIcons';
+import { openEpisodeDetail } from '../common/EpisodeRoute';
 import { AppBar } from '../components/AppBar';
 import { AppIconButton } from '../components/AppIconButton';
 import { OverflowButton } from '../components/OverflowButton';
@@ -673,14 +674,12 @@ struct EpisodesPage {
     return percent > 100 ? 100 : (percent < 5 ? 5 : percent);
   }
 
+  /**
+   * 单击行 = 打开单集详情页（与收件箱一致）；播放由详情页主操作或行内播放钮触发。
+   * 长按仍走本页的操作弹层（`openActionSheet`）。
+   */
   private openEpisode(item: FeedItem): void {
-    if (item.media !== undefined && item.media.fileUrl !== '') {
-      this.play(item);
-      return;
-    }
-    this.actionItem = item;
-    this.actionTitle = item.title;
-    this.showActionSheet = true;
+    openEpisodeDetail(item.id);
   }
 
   async play(item: FeedItem): Promise<void> {

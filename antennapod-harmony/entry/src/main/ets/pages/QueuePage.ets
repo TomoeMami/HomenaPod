@@ -18,6 +18,7 @@ import { EventHub, EventType, FeedItemUpdateData, EpisodeDownloadData } from '..
 import { DurationUtils } from '../utils/DurationUtils';
 import { DesignTokens } from '../common/DesignTokens';
 import { menuIcon } from '../common/MenuIcons';
+import { openEpisodeDetail } from '../common/EpisodeRoute';
 import { SwipeActions, SwipeScreen, SwipeActionId, SwipeActionSpec, swipeActionSpec,
   isDestructiveSwipeAction } from '../common/SwipeActions';
 import { AppIconButton } from '../components/AppIconButton';
@@ -1742,7 +1743,7 @@ export struct QueuePage {
   }
 
   /**
-   * 行点击：多选态切换选中；否则播放。
+   * 行点击：多选态切换选中；否则打开单集详情页（与收件箱一致，播放走右侧操作钮）。
    * 长按刚弹出操作弹层时忽略紧随其后的点击（`parallelGesture` 下同一次长按也会触发 onClick）。
    */
   private onRowTap(item: FeedItem): void {
@@ -1756,7 +1757,7 @@ export struct QueuePage {
       this.toggleSelected(item.id);
       return;
     }
-    this.play(this.rowItem(item));
+    openEpisodeDetail(this.rowItem(item).id);
   }
 
   /** 行内次级操作按钮（上游 ItemActionButton.forItem） */

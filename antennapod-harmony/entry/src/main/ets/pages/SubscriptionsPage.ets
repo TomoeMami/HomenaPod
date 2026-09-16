@@ -172,6 +172,8 @@ export struct SubscriptionsPage {
   private feedToken: number = -1;
   private itemToken: number = -1;
   private refreshToken: number = -1;
+  /** 下拉刷新防重入（与收件箱 `InboxView.refreshingNow` 同一道闸：`Refresh` 组件会回弹一次 onRefreshing） */
+  private refreshingNow: boolean = false;
   /** 加载序号：并发重查库时只认最后一次的结果（onVisibleAreaChange 会连续触发多次） */
   private loadSeq: number = 0;
   /** 上次提交给 LazyForEach 的数据指纹（内容未变则跳过 setData，避免整屏瓦片重建 → 封面闪动） */
@@ -2274,7 +2276,12 @@ export struct SubscriptionsPage {
 
   // ───────────────────────────── 刷新 ─────────────────────────────
 
+  /** 下拉 / 溢出菜单刷新（与收件箱 `InboxView.refreshFeeds` 完全同一套语义，只是刷完重读的是订阅列表） */
   async refreshAll(): Promise<void> {
+    if (this.refreshingNow) {
+      return;
+    }
+    this.refreshingNow = true;
     this.refreshing = true;
     this.message = getContext(this).resourceManager.getStringSync($r('app.string.refresh_running'));
     try {
@@ -2282,6 +2289,8 @@ export struct SubscriptionsPage {
       this.message = getContext(this).resourceManager.getStringSync($r('app.string.feed_refresh_done')) + added;
     } catch (error) {
       this.message = (error as Error).message;
+    } finally {
+      this.refreshingNow = false;
     }
     await this.loadFeeds();
   }

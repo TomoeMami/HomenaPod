@@ -15,6 +15,7 @@ import { UserPreferences } from '../prefs/UserPreferences';
 import { EventHub, EventType, FeedItemUpdateData } from '../events/EventHub';
 import { DurationUtils } from '../utils/DurationUtils';
 import { DesignTokens } from '../common/DesignTokens';
+import { openEpisodeDetail } from '../common/EpisodeRoute';
 import {
   SwipeActionId,
   SwipeActionSpec,
@@ -1061,14 +1062,15 @@ export struct HomePage {
   }
 
   /**
-   * 行 / 横滑卡片的单击：长按刚打开菜单时不播放
-   * （`parallelGesture` 下同一次长按手势的 onClick 也会命中，见 `menuOpenedAt`）。
+   * 行 / 横滑卡片的单击 = 打开单集详情页（与收件箱一致）；
+   * 长按刚打开菜单时不响应（`parallelGesture` 下同一次长按手势的 onClick 也会命中，见 `menuOpenedAt`）。
+   * 播放仍走各行右侧的副操作钮（`secondaryAction`）。
    */
   onRowTap(item: FeedItem): void {
     if (this.menuShown && Date.now() - this.menuOpenedAt < 1000) {
       return;
     }
-    this.playItem(item);
+    openEpisodeDetail(item.id);
   }
 
   // ---------------------------------------------------------------- 动作

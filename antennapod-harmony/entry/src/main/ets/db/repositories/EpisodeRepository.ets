@@ -21,6 +21,12 @@ export interface EpisodeHistoryRow {
   played: boolean;
 }
 
+/** media id → 单集（下载页：封面 + 详情页跳转用的单集 id） */
+export interface MediaRef {
+  itemId: number;
+  imageUrl: string;
+}
+
 /** 每个订阅的下载占用（存储管理页） */
 export interface FeedStorageUsage {
   feedId: number;
@@ -439,6 +445,39 @@ export class EpisodeRepository {
     }
     rs.close();
     return undefined;
+  }
+
+  /**
+   * 按 FeedMedia.id 批量反查单集（下载页用：DownloadLog 只存 media id 与标题，
+   * 行内的封面与「单击进详情页」所需的单集 id 都得回查）。
+   * 封面取单集自带图，为空时回落到订阅封面（与各列表行的取图规则一致）。
+   */
+  static async mediaRefs(mediaIds: number[]): Promise<Map<number, MediaRef>> {
+    const result: Map<number, MediaRef> = new Map<number, MediaRef>();
+    const ids: number[] = mediaIds.filter((id: number) => Number.isFinite(id) && id > 0);
+    if (ids.length === 0) {
+      return result;
+    }
+    const rs: relationalStore.ResultSet = await DbManager.querySql(
+      `SELECT m.id AS media_id, COALESCE(i.id, 0) AS item_id,
+              COALESCE(i.image_url, '') AS item_image, COALESCE(f.image_url, '') AS feed_image
+       FROM ${TABLE_FEED_MEDIA} m
+       LEFT JOIN ${TABLE_FEED_ITEMS} i ON i.id = m.feeditem
+       LEFT JOIN ${TABLE_FEEDS} f ON f.id = i.feed
+       WHERE m.id IN (${ids.join(',')})`
+    );
+    if (rs.goToFirstRow()) {
+      do {
+        const itemImage: string = rs.getString(rs.getColumnIndex('item_image'));
+        const feedImage: string = rs.getString(rs.getColumnIndex('feed_image'));
+        result.set(rs.getLong(rs.getColumnIndex('media_id')), {
+          itemId: rs.getLong(rs.getColumnIndex('item_id')),
+          imageUrl: itemImage !== '' ? itemImage : feedImage
+        });
+      } while (rs.goToNextRow());
+    }
+    rs.close();
+    return result;
   }
 
   /**

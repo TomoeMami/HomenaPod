@@ -10,6 +10,7 @@ import { FeedItem } from '../model/FeedItem';
 import { Playable } from '../model/Playable';
 import { DurationUtils } from '../utils/DurationUtils';
 import { DesignTokens } from '../common/DesignTokens';
+import { openEpisodeDetail } from '../common/EpisodeRoute';
 import { AppBar } from '../components/AppBar';
 import { AppIconButton } from '../components/AppIconButton';
 import { SectionHeader } from '../components/SectionHeader';
@@ -122,7 +123,8 @@ struct HistoryPage {
       actionIcon: $r('sys.symbol.play_fill'),
       actionTint: $r('app.color.primary'),
       onTap: () => {
-        this.play(row);
+        // 单击 = 打开单集详情页（与收件箱一致）；继续收听仍走右侧播放钮
+        openEpisodeDetail(row.feedItemId);
       },
       onAction: () => {
         this.play(row);

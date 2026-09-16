@@ -1,9 +1,10 @@
 import { DownloadLogEntry } from '../model/DownloadLogEntry';
 import { FeedItem } from '../model/FeedItem';
 import { DownloadLogRepository } from '../db/repositories/DownloadLogRepository';
-import { EpisodeRepository } from '../db/repositories/EpisodeRepository';
+import { EpisodeRepository, MediaRef } from '../db/repositories/EpisodeRepository';
 import { DownloadManager } from '../download/DownloadManager';
 import { DownloadErrorLabel } from '../common/DownloadErrorLabel';
+import { openEpisodeDetail } from '../common/EpisodeRoute';
 import { EventHub, EventType } from '../events/EventHub';
 import { LazyDataSource } from '../components/LazyDataSource';
 import { DesignTokens } from '../common/DesignTokens';
@@ -41,6 +42,12 @@ export struct DownloadsPage {
   private token: number = -1;
   private progressReceived: Map<number, number> = new Map<number, number>();
   private progressTotal: Map<number, number> = new Map<number, number>();
+  /**
+   * media id → 单集（封面 + 单击进详情页）。
+   * DownloadLog 表与 DownloadManager 的活动任务都只存 media id 与标题，展示封面得回查单集；
+   * 进度事件会频繁重进 `loadActive`，故查到的结果缓存下来，同一 media id 只查一次。
+   */
+  private mediaRefs: Map<number, MediaRef> = new Map<number, MediaRef>();
 
   build() {
     Stack({ alignContent: Alignment.Bottom }) {
@@ -143,6 +150,8 @@ export struct DownloadsPage {
   activeRow(row: ActiveDownloadRow) {
     EpisodeRow({
       title: row.title === '' ? '#' + row.mediaId : row.title,
+      imageUrl: this.rowImage(row.mediaId),
+      coverFallbackTitle: row.title,
       metaText: this.stateText(row),
       positionText: this.sizeText(row),
       durationText: this.progressPercent(row).toString() + '%',
@@ -151,7 +160,10 @@ export struct DownloadsPage {
       actionTint: $r('app.color.primary'),
       showAction: true,
       onTap: () => {
-        this.togglePause(row);
+        // 单击行 = 打开单集详情页（与收件箱一致）；暂停/继续仍走右侧操作钮
+        if (!this.openMediaDetail(row.mediaId)) {
+          this.togglePause(row);
+        }
       },
       onAction: () => {
         this.togglePause(row);
@@ -168,12 +180,16 @@ export struct DownloadsPage {
   logRow(entry: DownloadLogEntry) {
     EpisodeRow({
       title: entry.downloadStatusTitle === '' ? '#' + entry.feedFileId : entry.downloadStatusTitle,
+      imageUrl: this.rowImage(entry.feedFileId),
+      coverFallbackTitle: entry.downloadStatusTitle,
       metaText: this.statusText(entry),
       subtitle: this.reasonText(entry),
       showAction: !entry.successful,
       actionIcon: $r('sys.symbol.arrow_clockwise'),
       actionTint: $r('app.color.primary'),
       onTap: () => {
+        // 单击行 = 打开单集详情页（与收件箱一致）；失败行的重试仍走右侧操作钮
+        this.openMediaDetail(entry.feedFileId);
       },
       onAction: () => {
         this.retry(entry);
@@ -181,7 +197,45 @@ export struct DownloadsPage {
     })
   }
 
-  /** 失败原因文案（对照上游 DownloadErrorLabel：22 种错误 → 文案） */
+  /** 行封面：DownloadLog / 活动任务只存 media id，封面由 `mediaRefs` 反查得到 */
+  private rowImage(mediaId: number): string {
+    const ref: MediaRef | undefined = this.mediaRefs.get(mediaId);
+    return ref === undefined ? '' : ref.imageUrl;
+  }
+
+  /** 单击行 → 单集详情页；返回 false 表示该 media 已查不到对应单集（调用方自行兜底） */
+  private openMediaDetail(mediaId: number): boolean {
+    const ref: MediaRef | undefined = this.mediaRefs.get(mediaId);
+    if (ref === undefined || ref.itemId <= 0) {
+      return false;
+    }
+    openEpisodeDetail(ref.itemId);
+    return true;
+  }
+
+  /** 补查缺失的 media id → 单集信息（已缓存的 media id 不重复查库） */
+  private async ensureMediaRefs(mediaIds: number[]): Promise<void> {
+    const missing: number[] = [];
+    for (const mediaId of mediaIds) {
+      if (mediaId > 0 && !this.mediaRefs.has(mediaId)) {
+        missing.push(mediaId);
+      }
+    }
+    if (missing.length === 0) {
+      return;
+    }
+    const refs: Map<number, MediaRef> = await EpisodeRepository.mediaRefs(missing);
+    refs.forEach((ref: MediaRef, mediaId: number) => {
+      this.mediaRefs.set(mediaId, ref);
+    });
+  }
+
+  /**
+   * 失败原因文案（对照上游 DownloadErrorLabel：22 种错误 → 文案）。
+   * 这里按**资源名**取字符串：`$r()` 的资源 id 必须在编译期确定，
+   * 用 `$r('app.string.' + name)` 这种运行期拼出来的写法在真机上拿到的是 id 0，
+   * `getStringSync(0)` 会抛 `Invalid resource ID: 0` 直接把应用带崩（实测崩溃日志 jscrash 9001001）。
+   */
   reasonText(entry: DownloadLogEntry): string {
     if (entry.successful) {
       return '';
@@ -190,7 +244,7 @@ export struct DownloadsPage {
     if (code < 0) {
       return entry.reasonDetailed;
     }
-    return getContext(this).resourceManager.getStringSync(DownloadErrorLabel.resource(code));
+    return getContext(this).resourceManager.getStringByNameSync(DownloadErrorLabel.resourceName(code));
   }
 
   /** 重试下载（上游 download_log 行内重试按钮） */
@@ -297,15 +351,21 @@ export struct DownloadsPage {
     await this.loadHistory();
   }
 
-  loadActive(): void {
+  /**
+   * 刷新进行中的任务行。封面要先补齐再赋给 `activeRows`：
+   * 行一旦渲染，`EpisodeRow` 的 `imageUrl` 就定下来了（`mediaRefs` 不是状态变量）。
+   */
+  async loadActive(): Promise<void> {
     const tasks: Map<number, string> = DownloadManager.getActiveTasks();
     const rows: ActiveDownloadRow[] = [];
+    const mediaIds: number[] = [];
     tasks.forEach((state: string, mediaId: number) => {
       if (state === 'DONE' || state === 'REMOVED' || state === 'FAILED') {
         return;
       }
       const received: number | undefined = this.progressReceived.get(mediaId);
       const total: number | undefined = this.progressTotal.get(mediaId);
+      mediaIds.push(mediaId);
       rows.push({
         mediaId: mediaId,
         title: DownloadManager.getTitle(mediaId),
@@ -314,6 +374,11 @@ export struct DownloadsPage {
         total: total === undefined ? 0 : total
       });
     });
+    try {
+      await this.ensureMediaRefs(mediaIds);
+    } catch (error) {
+      // 取不到封面不影响进度展示
+    }
     this.activeRows = rows;
   }
 
@@ -321,6 +386,11 @@ export struct DownloadsPage {
     this.loading = true;
     try {
       const entries: DownloadLogEntry[] = await DownloadLogRepository.list();
+      try {
+        await this.ensureMediaRefs(entries.map((entry: DownloadLogEntry) => entry.feedFileId));
+      } catch (error) {
+        // 取不到封面不影响下载记录展示
+      }
       this.entries = entries;
       this.dataSource.setData(entries);
     } catch (error) {

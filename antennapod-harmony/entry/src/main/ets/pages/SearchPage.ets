@@ -14,6 +14,7 @@ import { DurationUtils } from '../utils/DurationUtils';
 import { LazyDataSource } from '../components/LazyDataSource';
 import { FeedCover } from '../components/FeedCover';
 import { DesignTokens } from '../common/DesignTokens';
+import { openEpisodeDetail } from '../common/EpisodeRoute';
 import { AppBar } from '../components/AppBar';
 import { AppIconButton } from '../components/AppIconButton';
 import { EpisodeRow } from '../components/EpisodeRow';
@@ -173,7 +174,8 @@ struct SearchPage {
                 isVideo: this.isVideo(item),
                 actionIcon: $r('sys.symbol.play_fill'),
                 onTap: () => {
-                  this.play(item);
+                  // 单击 = 打开单集详情页（与收件箱一致）；播放仍走右侧播放钮
+                  openEpisodeDetail(item.id);
                 },
                 onAction: () => {
                   this.play(item);

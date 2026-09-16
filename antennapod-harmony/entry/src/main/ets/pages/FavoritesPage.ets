@@ -2,12 +2,10 @@ import router from '@ohos.router';
 import { FeedItem } from '../model/FeedItem';
 import { MediaType } from '../model/Enums';
 import { FavoritesRepository } from '../db/repositories/FavoritesRepository';
-import { QueueEngine } from '../player/QueueEngine';
-import { PlayerManager } from '../player/PlayerManager';
-import { Playable } from '../model/Playable';
 import { LazyDataSource } from '../components/LazyDataSource';
 import { DurationUtils } from '../utils/DurationUtils';
 import { DesignTokens } from '../common/DesignTokens';
+import { openEpisodeDetail } from '../common/EpisodeRoute';
 import { AppBar } from '../components/AppBar';
 import { AppIconButton } from '../components/AppIconButton';
 import { EpisodeRow } from '../components/EpisodeRow';
@@ -98,7 +96,8 @@ struct FavoritesPage {
       actionIcon: $r('sys.symbol.star_fill'),
       actionTint: $r('app.color.star'),
       onTap: () => {
-        this.play(item);
+        // 单击 = 打开单集详情页（与收件箱一致）；取消收藏仍走右侧星标钮
+        openEpisodeDetail(item.id);
       },
       onAction: () => {
         this.remove(item);
@@ -132,31 +131,6 @@ struct FavoritesPage {
     } catch (error) {
       this.message = (error as Error).message;
     }
-  }
-
-  async play(item: FeedItem): Promise<void> {
-    if (item.media === undefined) {
-      return;
-    }
-    const playable: Playable = new Playable(
-      item.media.id,
-      item.id,
-      item.title,
-      'Favorites',
-      item.media.downloadUrl,
-      item.media.fileUrl,
-      item.media.duration,
-      item.media.position,
-      item.media.getMediaType(),
-      1.0,
-      0,
-      0,
-      0,
-      item.imageUrl
-    );
-    await QueueEngine.ensureQueued(item);
-    await PlayerManager.load(playable, item.media.position, true);
-    router.pushUrl({ url: 'pages/PlayerPage' });
   }
 
   /** 状态行：发布日期 · 文件大小（上游 feeditemlist_item.xml 的 txtvPubDate + size） */

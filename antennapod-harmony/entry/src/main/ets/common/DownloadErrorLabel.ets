@@ -37,20 +37,10 @@ export class DownloadErrorLabel {
     return Number.isFinite(value) ? value : -1;
   }
 
-  /** 错误码 → 文案资源名（调用方用 resourceManager.getStringSync 或 $r 字面量解析） */
+  /** 错误码 → 文案资源名（调用方用 `resourceManager.getStringByNameSync` 取文案） */
   static resourceName(code: number): string {
     return code >= 0 && code < DownloadErrorLabel.LABELS.length
       ? DownloadErrorLabel.LABELS[code] : DownloadErrorLabel.LABELS[0];
-  }
-
-  /** 错误码 → 完整资源标识 `app.string.<name>` */
-  static resourceId(code: number): string {
-    return 'app.string.' + DownloadErrorLabel.resourceName(code);
-  }
-
-  /** 错误码 → 文案资源（ArkUI 全局 Resource 类型，无需 import） */
-  static resource(code: number): Resource {
-    return $r(DownloadErrorLabel.resourceId(code));
   }
 }
 

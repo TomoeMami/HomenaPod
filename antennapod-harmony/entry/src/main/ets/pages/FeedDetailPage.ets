@@ -21,6 +21,7 @@ import { FeedCover } from '../components/FeedCover';
 import { DurationUtils } from '../utils/DurationUtils';
 import { DesignTokens } from '../common/DesignTokens';
 import { menuIcon } from '../common/MenuIcons';
+import { openEpisodeDetail } from '../common/EpisodeRoute';
 import {
   SwipeActionId,
   SwipeActionSpec,
@@ -561,7 +562,8 @@ struct FeedDetailPage {
         if (this.selecting) {
           this.toggleSelected(item.id);
         } else {
-          this.play(item);
+          // 单击 = 打开单集详情页（与收件箱一致）：播放由详情页主操作或行内播放钮触发
+          openEpisodeDetail(item.id);
         }
       },
       onAction: () => {

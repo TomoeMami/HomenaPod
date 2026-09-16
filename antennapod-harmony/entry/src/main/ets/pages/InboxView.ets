@@ -13,10 +13,11 @@ import { PlayerManager } from '../player/PlayerManager';
 import { DownloadManager } from '../download/DownloadManager';
 import { RefreshService } from '../services/RefreshService';
 import { UserPreferences } from '../prefs/UserPreferences';
-import { EventHub, EventType, FeedItemUpdateData, EpisodeDownloadData } from '../events/EventHub';
+import { EventHub, EventType, FeedItemUpdateData, EpisodeDownloadData, RefreshStateData } from '../events/EventHub';
 import { DurationUtils } from '../utils/DurationUtils';
 import { DesignTokens } from '../common/DesignTokens';
 import { menuIcon } from '../common/MenuIcons';
+import { openEpisodeDetail } from '../common/EpisodeRoute';
 import {
   SwipeActionId,
   SwipeActionSpec,
@@ -118,6 +119,13 @@ export struct InboxView {
   private dataSource: LazyDataSource<FeedItem> = new LazyDataSource<FeedItem>();
   private cursor: InboxCursor | undefined = undefined;
   private loadedIds: Set<number> = new Set<number>();
+  /**
+   * 加载序号：并发 `load()` 时只让最后一次的结果落盘。
+   * 整库刷新会逐 Feed 广播 `FEED_LIST_UPDATE`（每次都可能触发一次 `load()`），加上刷新结束时的那次重读，
+   * 同时会有两三个查询在飞；先发起、后返回的那次若照旧覆盖列表，就会把新单集抹回刷新前的快照——
+   * 表现为「收件箱下拉刷新后新单集不出现，切到订阅页刷一次再回来才有」。
+   */
+  private loadSeq: number = 0;
   private feedTitles: Map<number, string> = new Map<number, string>();
   private feedImages: Map<number, string> = new Map<number, string>();
   private feedListToken: number = -1;
@@ -126,6 +134,7 @@ export struct InboxView {
   private playerToken: number = -1;
   private downloadToken: number = -1;
   private positionToken: number = -1;
+  private refreshStateToken: number = -1;
   private messageTimerId: number = -1;
   private listScroller: ListScroller = new ListScroller();
   /** 首屏加载完成后是否还要恢复滚动位置（上游 onItemsFirstLoaded → restoreScrollPosition） */
@@ -479,6 +488,11 @@ export struct InboxView {
     }
     .layoutWeight(1)
     .onRefreshing(() => {
+      // 已经有一轮整库刷新在跑（定时刷新 / 首页刷新 / 订阅页下拉）：忽略这次下拉，
+      // 免得同一次刷新把订阅抓两遍（订阅页 `SubscriptionsPage.onRefreshing` 是同一道闸）。
+      if (RefreshService.isRunning()) {
+        return;
+      }
       this.refreshFeeds();
     })
   }
@@ -899,11 +913,17 @@ export struct InboxView {
     this.positionToken = EventHub.subscribe(EventType.PLAYBACK_POSITION, (data: object) => {
       this.onPlaybackPosition(data);
     });
+    // 整库刷新状态（上游 sticky FeedUpdateRunningEvent，订阅页也是同一套）：
+    // 任何入口（本页下拉 / 订阅页下拉 / 首页刷新 / 定时任务 / OPML 导入）发起的刷新
+    // 都驱动本页的下拉指示，并在**刷完时重读第一页**——否则「从别处刷新后新单集不出现」。
+    this.refreshStateToken = EventHub.subscribe(EventType.REFRESH_STATE, (data: object) => {
+      this.onRefreshState(data);
+    });
   }
 
   aboutToDisappear(): void {
     const tokens: number[] = [this.feedListToken, this.swipeToken, this.itemToken,
-      this.playerToken, this.downloadToken, this.positionToken];
+      this.playerToken, this.downloadToken, this.positionToken, this.refreshStateToken];
     for (const token of tokens) {
       if (token >= 0) {
         EventHub.unsubscribeToken(token);
@@ -915,6 +935,7 @@ export struct InboxView {
     this.playerToken = -1;
     this.downloadToken = -1;
     this.positionToken = -1;
+    this.refreshStateToken = -1;
     if (this.messageTimerId >= 0) {
       clearTimeout(this.messageTimerId);
       this.messageTimerId = -1;
@@ -932,6 +953,7 @@ export struct InboxView {
 
   /** 首屏 / 手动刷新：重新从第一页开始取，并复位游标 */
   async load(): Promise<void> {
+    const seq: number = ++this.loadSeq;
     this.loading = true;
     try {
       const wasEmpty: boolean = this.dataSource.totalCount() === 0;
@@ -939,6 +961,11 @@ export struct InboxView {
       await this.loadRowState();
       this.totalCount = await EpisodeRepository.countNew();
       const items: FeedItem[] = await EpisodeRepository.listInboxPage(InboxView.PAGE_SIZE, this.sortOrder);
+      if (seq !== this.loadSeq) {
+        // 期间又发起了更新的加载（整库刷新的逐 Feed 广播 + 刷完后的重读会叠在一起）：
+        // 丢弃本次结果，否则旧快照会盖掉刚写库的新单集
+        return;
+      }
       this.cursor = undefined;
       this.loadedIds = new Set<number>();
       this.dataSource.setData(items);
@@ -950,6 +977,9 @@ export struct InboxView {
         this.restoreScrollPosition();
       }
     } catch (error) {
+      if (seq !== this.loadSeq) {
+        return;
+      }
       this.cursor = undefined;
       this.loadedIds = new Set<number>();
       this.dataSource.setData([]);
@@ -958,9 +988,11 @@ export struct InboxView {
       this.hasMore = false;
       this.showMessage((error as Error).message);
     } finally {
-      this.loading = false;
-      // 首屏内容已经出过（空态也算），之后的重查不再抢整屏
-      this.initialLoading = false;
+      if (seq === this.loadSeq) {
+        this.loading = false;
+        // 首屏内容已经出过（空态也算），之后的重查不再抢整屏
+        this.initialLoading = false;
+      }
     }
   }
 
@@ -1106,6 +1138,24 @@ export struct InboxView {
     this.load();
   }
 
+  /**
+   * 整库刷新开始 / 结束。
+   * 开始：下拉指示跟着亮（订阅页同款），本页自己没下拉时（首页刷新 / 定时任务 / 订阅页刷新）
+   * 也能看到「正在刷新」。
+   * 结束：**无条件重读第一页**——刷新期间 `onFeedListUpdate` 在深翻页时只更新计数，
+   * 不重读列表；只靠它的话，下拉刷新后新单集要等下次进页面才出现。
+   */
+  private onRefreshState(data: object): void {
+    const state: RefreshStateData = data as RefreshStateData;
+    if (state === undefined) {
+      return;
+    }
+    this.refreshing = state.running;
+    if (!state.running) {
+      this.load();
+    }
+  }
+
   private async refreshTotal(): Promise<void> {
     try {
       this.totalCount = await EpisodeRepository.countNew();
@@ -1249,7 +1299,7 @@ export struct InboxView {
 
   /** 单击 = 打开单集详情页（上游 `ItemPagerFragment`；播放由详情页的主操作或行内次级按钮触发） */
   openDetail(item: FeedItem): void {
-    router.pushUrl({ url: 'pages/EpisodeDetailPage', params: { itemId: item.id } });
+    openEpisodeDetail(item.id);
   }
 
   /** 播放（行内次级按钮 / 长按菜单路径用；详情页的主操作用的是同一个播放入口） */
@@ -1531,7 +1581,13 @@ export struct InboxView {
     this.showRemoveAll = true;
   }
 
-  /** 下拉 / 溢出菜单刷新：拉取订阅更新（上游 FeedUpdateManager.runOnceOrAsk） */
+  /**
+   * 下拉 / 溢出菜单刷新：拉取订阅更新（上游 FeedUpdateManager.runOnceOrAsk）。
+   *
+   * 与订阅页 `SubscriptionsPage.refreshAll` 完全同一套语义：同一个 `RefreshService.refreshAll()`、
+   * 同样的「正在刷新… / 已更新新增：N」提示、刷完重读自己的列表。
+   * 两边的差别只剩下列表本身（这里是新单集，那边是订阅计数与封面）。
+   */
   async refreshFeeds(): Promise<void> {
     // 防重入：`Refresh` 组件在 refreshing 被置真时会再回调一次 onRefreshing
     if (this.refreshingNow) {
@@ -1539,13 +1595,14 @@ export struct InboxView {
     }
     this.refreshingNow = true;
     this.refreshing = true;
+    this.showMessage(getContext(this).resourceManager.getStringSync($r('app.string.refresh_running')));
     try {
-      await RefreshService.refreshAll();
+      const added: number = await RefreshService.refreshAll();
+      this.showMessage(getContext(this).resourceManager.getStringSync($r('app.string.feed_refresh_done')) + added);
     } catch (error) {
       this.showMessage((error as Error).message);
     } finally {
       this.refreshingNow = false;
-      this.refreshing = false;
       await this.load();
     }
   }
