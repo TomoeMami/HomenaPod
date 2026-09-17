@@ -13,6 +13,8 @@ import { DownloadErrorLabel } from '../common/DownloadErrorLabel';
 import { Logger } from '../utils/Logger';
 
 const TAG: string = 'DownloadManager';
+/** DownloadLog.feedfiletype：对应上游 FeedFileType.FEED */
+const FEED_FILE_TYPE_FEED: number = 1;
 /** DownloadLog.feedfiletype：对应上游 FeedFileType.FEEDMEDIA */
 const FEED_FILE_TYPE_MEDIA: number = 2;
 /** DownloadLog.reason：0=用户主动触发 */
@@ -51,13 +53,31 @@ export class DownloadManager {
     return value === undefined ? '' : value;
   }
 
+  /** 已接收字节（服务端未给 Content-Length 时为 0；下载页的行内大小文案用） */
+  static getReceivedBytes(mediaId: number): number {
+    const value: number | undefined = DownloadManager.received.get(mediaId);
+    return value === undefined ? 0 : value;
+  }
+
+  /** 总字节（未知时为 0） */
+  static getTotalBytes(mediaId: number): number {
+    const value: number | undefined = DownloadManager.totals.get(mediaId);
+    return value === undefined ? 0 : value;
+  }
+
   /** 触发单集下载；title 仅用于下载日志展示 */
   static async startDownload(media: FeedMedia, title: string = ''): Promise<void> {
     if (DownloadManager.context === undefined) {
       throw new Error('DownloadManager not initialized');
     }
-    if (DownloadManager.statusMap.has(media.id)) {
+    // 只挡「正在下载 / 已暂停」；FAILED/DONE 等终态是上一次任务留下的，不能挡住重试
+    // （否则失败过的单集在进程重启前永远下载不了——下载日志的重试按钮点了没反应）
+    const existing: string | undefined = DownloadManager.statusMap.get(media.id);
+    if (existing === 'RUNNING' || existing === 'PAUSED') {
       return;
+    }
+    if (existing !== undefined) {
+      DownloadManager.statusMap.delete(media.id);
     }
     if (media.downloadUrl === '') {
       throw new Error('该单集没有可下载的音频地址');
@@ -128,7 +148,8 @@ export class DownloadManager {
       }
       // 先落库再广播：订阅方收到 DONE 会立刻重查数据库，file_url 未落盘的话行还是"未下载"
       EpisodeRepository.updateMediaFile(media.id, filePath, size)
-        .then(() => DownloadManager.writeLog(media.id, true, '下载完成'))
+        .then(() => DownloadManager.writeLog(media.id, true,
+          DownloadManager.string($r('app.string.download_log_success_detail'))))
         .then(() => {
           const doneData: EpisodeDownloadData = { mediaId: media.id, state: 'DONE', filePath: filePath };
           EventHub.publish(EventType.EPISODE_DOWNLOAD, doneData);
@@ -286,8 +307,26 @@ export class DownloadManager {
     const title: string = DownloadManager.getTitle(mediaId);
     const entry: DownloadLogEntry = new DownloadLogEntry(
       0, mediaId, FEED_FILE_TYPE_MEDIA, REASON_USER, successful, Date.now(), detail,
-      title === '' ? '#' + mediaId : title
+      title === '' ? DownloadManager.string($r('app.string.download_log_title_unknown')) : title
     );
+    await DownloadManager.addLogEntry(entry);
+  }
+
+  /**
+   * 订阅更新失败也写一条 FEED 类型日志（对照上游 DownloadLog 的 FEEDFILETYPE_FEED 记录，
+   * 其重试走 `FeedUpdateManager.runOnce(feed)` 而不是重新下载文件）。
+   * 失败原因文案取「订阅更新失败」资源串；UI 侧解析不出 `code=` 前缀时按原文展示。
+   */
+  static async logFeedFailure(feedId: number, feedTitle: string): Promise<void> {
+    const entry: DownloadLogEntry = new DownloadLogEntry(
+      0, feedId, FEED_FILE_TYPE_FEED, REASON_USER, false, Date.now(),
+      DownloadManager.string($r('app.string.download_error_feed_refresh')),
+      feedTitle === '' ? DownloadManager.string($r('app.string.download_log_title_unknown')) : feedTitle
+    );
+    await DownloadManager.addLogEntry(entry);
+  }
+
+  private static async addLogEntry(entry: DownloadLogEntry): Promise<void> {
     try {
       await DownloadLogRepository.add(entry);
       // 下载记录变化（对照上游 DownloadLogEvent）：首页「管理下载」等订阅方据此刷新
@@ -296,5 +335,13 @@ export class DownloadManager {
     } catch (error) {
       Logger.warn(TAG, 'write download log failed: ' + (error as Error).message);
     }
+  }
+
+  /** 取资源串（非 UI 文件里用 resourceManager；context 未初始化时返回空串） */
+  private static string(res: Resource): string {
+    if (DownloadManager.context === undefined) {
+      return '';
+    }
+    return DownloadManager.context.resourceManager.getStringSync(res);
   }
 }

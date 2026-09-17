@@ -1543,6 +1543,138 @@
     {
       "name": "play_this_to_seek_position_message",
       "value": "Play this episode to jump to that position"
+    },
+    {
+      "name": "downloads_log_label",
+      "value": "Download log"
+    },
+    {
+      "name": "no_log_downloads_head_label",
+      "value": "No download log"
+    },
+    {
+      "name": "no_log_downloads_label",
+      "value": "Download logs will appear here when available."
+    },
+    {
+      "name": "no_comp_downloads_head_label",
+      "value": "No downloaded episodes"
+    },
+    {
+      "name": "download_error_tap_for_details",
+      "value": "Tap to view details."
+    },
+    {
+      "name": "download_type_feed",
+      "value": "Feed"
+    },
+    {
+      "name": "download_type_media",
+      "value": "Media file"
+    },
+    {
+      "name": "download_log_title_unknown",
+      "value": "Unknown title"
+    },
+    {
+      "name": "clear_history_label",
+      "value": "Clear history"
+    },
+    {
+      "name": "delete_downloads_played",
+      "value": "Delete played"
+    },
+    {
+      "name": "delete_downloads_played_confirmation",
+      "value": "Please confirm that you want to delete all played downloads."
+    },
+    {
+      "name": "download_log_details_human_readable_reason_title",
+      "value": "Status"
+    },
+    {
+      "name": "download_log_details_technical_reason_title",
+      "value": "Technical details"
+    },
+    {
+      "name": "download_log_details_file_url_title",
+      "value": "File URL"
+    },
+    {
+      "name": "download_log_open_feed",
+      "value": "Open"
+    },
+    {
+      "name": "download_error_details",
+      "value": "Details"
+    },
+    {
+      "name": "copy_to_clipboard",
+      "value": "Copy to clipboard"
+    },
+    {
+      "name": "download_successful",
+      "value": "successful"
+    },
+    {
+      "name": "download_log_success_detail",
+      "value": "Download completed"
+    },
+    {
+      "name": "download_error_feed_refresh",
+      "value": "Feed update failed"
+    },
+    {
+      "name": "dialog_ok",
+      "value": "OK"
+    },
+    {
+      "name": "feed_label",
+      "value": "Podcast"
+    },
+    {
+      "name": "episode_label",
+      "value": "Episode"
+    },
+    {
+      "name": "size",
+      "value": "Size"
+    },
+    {
+      "name": "sort_label",
+      "value": "Sort"
+    },
+    {
+      "name": "setting_downloads_button_play",
+      "value": "Downloads button plays instead of deleting"
+    },
+    {
+      "name": "confirm_mobile_download_dialog_title",
+      "value": "Download over mobile network?"
+    },
+    {
+      "name": "confirm_mobile_download_dialog_message",
+      "value": "You are not connected to Wi-Fi. Downloading may use mobile data."
+    },
+    {
+      "name": "confirm_mobile_download_dialog_allow_this_time",
+      "value": "Allow this time"
+    },
+    {
+      "name": "time_just_now",
+      "value": "just now"
+    },
+    {
+      "name": "time_minutes_ago",
+      "value": "%1$s minutes ago"
+    },
+    {
+      "name": "time_hours_ago",
+      "value": "%1$s hours ago"
+    },
+    {
+      "name": "time_days_ago",
+      "value": "%1$s days ago"
     }
   ]
 }

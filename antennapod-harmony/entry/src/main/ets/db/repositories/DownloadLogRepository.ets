@@ -6,9 +6,12 @@ import { DownloadLogEntry } from '../../model/DownloadLogEntry';
 import { DownloadLogMapper } from '../mappers/DownloadLogMapper';
 
 export class DownloadLogRepository {
+  /** 日志条数上限（对照上游 DBReader.DOWNLOAD_LOG_SIZE = 200） */
+  static readonly MAX_ENTRIES: number = 200;
+
   static async list(): Promise<DownloadLogEntry[]> {
     const rs: relationalStore.ResultSet = await DbManager.querySql(
-      `SELECT * FROM ${TABLE_DOWNLOAD_LOG} ORDER BY completion_date DESC`
+      `SELECT * FROM ${TABLE_DOWNLOAD_LOG} ORDER BY completion_date DESC LIMIT ${DownloadLogRepository.MAX_ENTRIES}`
     );
     const entries: DownloadLogEntry[] = [];
     if (rs.goToFirstRow()) {

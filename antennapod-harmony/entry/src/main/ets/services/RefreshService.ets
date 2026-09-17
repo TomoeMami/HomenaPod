@@ -5,6 +5,7 @@ import { FeedFilter } from '../model/FeedFilter';
 import { NewEpisodesAction } from '../model/Enums';
 import { FeedRepository } from '../db/repositories/FeedRepository';
 import { EpisodeRepository } from '../db/repositories/EpisodeRepository';
+import { DownloadManager } from '../download/DownloadManager';
 import { QueueEngine } from '../player/QueueEngine';
 import { FeedFetcher } from './FeedFetcher';
 import { NotificationService, FeedNotificationEntry } from './NotificationService';
@@ -102,6 +103,9 @@ export class RefreshService {
         }
       } catch (error) {
         Logger.warn(TAG, 'refresh failed for feed ' + feed.id + ': ' + (error as Error).message);
+        // 订阅更新失败也入下载日志（对照上游 DownloadLog 的 FEEDFILETYPE_FEED 记录），
+        // 其重试动作是「重新刷新订阅」而不是重新下载文件
+        await DownloadManager.logFeedFailure(feed.id, feed.getTitle());
       }
       // 每抓完一个就广播一次（上游 FeedUpdateWorker 也是逐 Feed 发事件）：
       // 批量导入后订阅页能看着封面与计数一个个补齐，而不是整轮跑完才一次性刷新。

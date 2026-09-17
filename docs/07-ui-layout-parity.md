@@ -174,7 +174,7 @@
 | 添加播客 `AddFeedPage` | `addfeed.xml`：标题「Add podcast」、无工具栏动作；圆角 28dp 搜索卡 + 6 行 `AddPodcastTextView`（minHeight 48dp、上下 8dp、左右 16dp、图标 + 14sp 文案） | 同构：28vp 搜索卡 + 6 行（RSS 地址 / 本地文件夹 / Apple Podcasts / fyyd / Podcast Index / OPML），RSS 行内联原有 URL 输入 + 私有订阅开关 + 订阅按钮 |
 | 搜索 `SearchPage` | `search_fragment.xml`：标题「Search」+ 搜索动作；先订阅结果、后单集结果两个列表 | 同构：标题 + 搜索动作 + 圆角输入框 + 加载指示；`FeedCover` 行（订阅结果）在前、`EpisodeRow`（单集结果，本地全库检索）在后；空态图标 32vp + 16sp 文案 |
 | OPML `OpmlPage` | `opml_selection.xml`：多选列表 + Select all/Deselect all + Confirm/Cancel | 同构：`OverflowButton`（全选/取消全选）+ 导出动作；多选行（勾选图标 + 标题，minHeight 48vp）+ 底部「取消 / 确认」40vp 双按钮 |
-| 下载 `DownloadsPage` | `downloadlog_fragment.xml` + `downloadlog_item.xml`：运行中 / 已完成两组列表 + 「Clear history」 | `AppBar` + 清空动作 + 两组 `SectionHeader`（带计数）+ `EpisodeRow`；运行中行显示「已下载/总量」与 4vp 进度 |
+| 下载 `DownloadsPage` | `simple_list_fragment.xml` + `CompletedDownloadsFragment`：工具栏（搜索 / 下载记录 / 溢出：删除已播放·刷新·排序）+ 已下载单集列表（含进行中的下载，`feeditemlist_item.xml` 行）+ 下拉刷新 + 滑动动作 + 多选动作栏；下载记录是独立底部弹层 `DownloadLogFragment` | `AppBar` + 搜索 / 下载记录 / 溢出三动作 + `EpisodeRow` 已下载单集列表（进行中的下载按上游顺序排在前部，行内显示「已下载/总量」与 4vp 进度）+ 下拉刷新 + `SwipeActions(DOWNLOADS)` + 多选动作栏（112vp 卡片）；下载记录 / 排序 / 删除已播放确认 / 日志详情 / 移动网络确认均为页内弹层（第 53 轮按上游重做） |
 | 播放历史 `HistoryPage` | `playback_history.xml`：标题 + Clear history（列表非空时显示） | `AppBar` + 清空动作 + 「继续收听 / 全部记录」两组 + `EpisodeRow` |
 | 收藏 `FavoritesPage` | `favorites.xml`：标题 + 搜索动作 | `AppBar` + 搜索动作 + `EpisodeRow`（星标状态图标） |
 | 收听统计 `StatsPage` | `ui/statistics`：三个页签「Subscriptions / Years / Downloads」+ 饼图/柱状图 | `AppBar` + `TagChip` 三页签（订阅/年份/下载）；图表用**等比横向条**替代（见 §4 #13） |
@@ -206,9 +206,9 @@
 | 15 | 搜索页工具栏内展开的 `SearchView`（CollapsibleSearchView） | **替代实现** | `AppBar` 的 `@BuilderParam` 无法承载展开式搜索框，改为布局内圆角输入框。 |
 | 16 | 添加播客的「快速发现」网格（`quickFeedDiscovery`） | **跳过** | 本移植版无对应发现 API。 |
 | 17 | 添加播客的「本地文件夹 / fyyd / Podcast Index」三个入口 | **替代实现** | 后端能力不存在，按上游几何渲染但置灰（`text_disabled`）且不可点击，避免误点。 |
-| 18 | 下载/收藏/统计页的溢出菜单项（Delete played / Refresh / Sort / Reset statistics / Filter） | **跳过** | 对应功能在本移植版不存在，不渲染空菜单项。 |
-| 19 | 下载行无封面（`downloadlog_item.xml`） | **替代实现** | 共用 `EpisodeRow` 始终渲染 56vp 封面；一致性优先于该细节。 |
-| 20 | 清空历史 / 清空下载的二次确认对话框 | **跳过** | 本轮未加确认弹窗（原行为即立即执行），记录为后续项。 |
+| 18 | 下载/收藏/统计页的溢出菜单项（Delete played / Refresh / Sort / Reset statistics / Filter） | **已同步（下载页，第 53 轮）** | 下载页溢出已补「删除已播放 / 刷新 / 排序」，工具栏补「搜索 / 下载记录」两个常驻图标；收藏页与统计页的溢出项仍未做（对应功能不存在，不渲染空菜单项）。 |
+| 19 | 下载行无封面（`downloadlog_item.xml`） | **已同步（第 53 轮）** | 下载**记录弹层**的行改为专用行（16dp 状态图标 + 标题 + 「类型 · 相对时间」+ 红色原因行 + 「点按查看详情」+ 48dp 重试钮），不再复用带封面的 `EpisodeRow`；下载**列表**行仍按上游用带封面的单集行。 |
+| 20 | 清空历史 / 清空下载的二次确认对话框 | **保持（第 53 轮核对）** | 上游「清空下载记录」本身没有确认框，故保持一致；「删除已播放的下载」按上游补了确认对话框（`delete_downloads_played_confirmation`）。 |
 | 21 | 设置页「关于」分类 | **跳过** | 本移植版无对应设置项，新增版本/隐私行属于功能新增。 |
 | 22 | 订阅页默认 3 列、且**不显示标题**（标题画在封面上） | **已同步（第 43 轮，用户选择**，覆盖第 27 轮的「相对调整」**）** | 默认回到上游口径：3 列 + 标题画在封面占位底上（`prefSubscriptionShowTitles` 默认 `false`）；瓦片下方标题仍可手动开启，字号/内边距按上游随列数变化。 |
 | 23 | 首页横滑卡片标题 14sp、日期 14sp | **相对调整** | 标题提到 15fp、日期降到 12fp（次级），保持"封面 + 两行标题 + 日期"的相对结构。 |
@@ -219,7 +219,7 @@
 | 28 | 首页竖排行挂 `SwipeActions` | **已同步（第 40 轮，形态同收件箱页）** | 右滑=加入队列；左滑：看新内容=标记已播、管理下载=删除文件。为此首页内容区由 `Scroll + Column + ForEach` 改为**单个纵向 `List`**：`swipeAction` 是 `ListItem` 的属性，挂在自定义组件上无法识别。 |
 | 29 | 标题栏「刷新 / 配置首页」收进溢出菜单 | **替代实现（第 40 轮）** | 鸿蒙侧标题栏用三个图标动作（搜索 / 刷新 / 编辑），与队列页、单集总表的标题栏形态一致；不再为两项单独开溢出菜单。 |
 | 30 | 欢迎页 80dp `ic_curved_arrow` 引导箭头 | **替代实现（第 40 轮）** | 上游是手绘曲线箭头（右下角实例翻转 180°）；鸿蒙侧用系统曲线箭头符号 `sys.symbol.arrow_uturn_down` 近似，位置/尺寸（80vp、margin 16vp、右下角）一致。 |
-| 31 | 下载排序偏好由下载页的排序动作设置 | **替代实现（第 40 轮）** | `prefDownloadsSortedOrder` 与「首页管理下载」的排序已对齐；入口放在设置页「存储」分类一行（点击循环 6 种排序）——本移植版下载页展示的是下载记录而非可排序的单集列表，放在那里没有作用对象。 |
+| 31 | 下载排序偏好由下载页的排序动作设置 | **已同步（第 53 轮）** | 下载页溢出「排序」= 4 类 chip（日期 / 单集标题 / 时长 / 大小，各带 ▲▼，日期与大小默认降序），写 `prefDownloadsSortedOrder` 并即时重排；设置页「存储」分类的循环行保留（两处共用同一偏好）。`SortOrder` 为此新增 `SIZE_SMALL_LARGE/SIZE_LARGE_SMALL`，`SortUtils.sortItems` 支持按文件大小排序。 |
 | 32 | 统计口径复选项在 `StatisticsFilterDialog`（含时间范围选择） | **替代实现（第 40 轮）** | 本移植版统计页没有过滤对话框；新增的「包含仅标记为已播的单集时长」开关放在统计页「Subscriptions」标签顶部，与首页「常听经典」共用同一口径。 |
 | 33 | 队列划出项视觉（中性抬升底 + 图标着色 + 最大位移 2/5 宽、正弦阻尼、85% 阈值执行） | **保持（第 41 轮，用户选择）** | 本端用品牌色/错误色整块动作区 + 40vp 动作区、「越过即执行」，与收件箱 / 首页 / 订阅详情同一套划出风格；改一处就得改四处。 |
 | 34 | 队列行内日期格式 `DateFormatter.formatAbbrev`（"Sep 1"，不带年份） | **保持（第 41 轮，用户选择）** | 本端沿用系统本地格式（`toLocaleDateString`，带年份），对老单集更易辨认，且与复用 `EpisodeRow` 的其它列表一致。 |

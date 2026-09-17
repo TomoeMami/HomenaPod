@@ -59,6 +59,8 @@ export struct SettingsPage {
   @State language: string = 'default';
   /** 下载列表排序（上游 prefDownloadsSortedOrder；影响下载页与首页「管理下载」） */
   @State downloadsSortOrder: SortOrder = SortOrder.DATE_NEW_OLD;
+  /** 下载页行内按钮改为播放（上游 prefDownloadsButtonAction，默认关 = 删除文件） */
+  @State downloadsButtonPlay: boolean = false;
   @State message: string = '';
   /** 行内时长是否显示「剩余时间」（上游 prefShowRemainingTime，默认关） */
   @State showRemainingTime: boolean = false;
@@ -125,6 +127,14 @@ export struct SettingsPage {
               this.navRow($r('sys.symbol.rectangle_stack'), $r('app.string.setting_swipe_actions'), '', () => {
                 this.openSwipeSheet();
               })
+              this.rowDivider()
+              // 下载页行内按钮动作（上游 preferences_user_interface.xml 的 prefDownloadsButtonAction）
+              this.switchRow($r('sys.symbol.trash'), $r('app.string.setting_downloads_button_play'),
+                this.downloadsButtonPlay, (isOn: boolean) => {
+                  this.downloadsButtonPlay = isOn;
+                  UserPreferences.setDownloadsButtonPlay(isOn);
+                  this.notifyPrefsChanged();
+                })
             }
             .width('100%')
           }
@@ -924,6 +934,7 @@ export struct SettingsPage {
     this.episodeNotification = UserPreferences.getEpisodeNotification();
     this.language = UserPreferences.getAppLanguage();
     this.downloadsSortOrder = UserPreferences.getDownloadsSortedOrder() as SortOrder;
+    this.downloadsButtonPlay = UserPreferences.getDownloadsButtonPlay();
     this.showRemainingTime = UserPreferences.getShowRemainingTime();
     this.timeRespectsSpeed = UserPreferences.getTimeRespectsSpeed();
     this.pauseOnDisconnect = UserPreferences.isPauseOnHeadsetDisconnect();

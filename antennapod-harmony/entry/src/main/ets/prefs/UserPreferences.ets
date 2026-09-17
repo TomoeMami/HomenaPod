@@ -527,6 +527,20 @@ export class UserPreferences {
   }
 
   /**
+   * 下载页行内按钮的动作（上游 `UserPreferences.shouldDownloadsButtonActionPlay` /
+   * `prefDownloadsButtonAction`，默认 false）：
+   * false = 删除本地文件（DeleteActionButton），true = 播放（PlayActionButton）。
+   */
+  static getDownloadsButtonPlay(): boolean {
+    return UserPreferences.getPrefs().getSync('prefDownloadsButtonAction', false) as boolean;
+  }
+
+  static setDownloadsButtonPlay(value: boolean): void {
+    UserPreferences.getPrefs().putSync('prefDownloadsButtonAction', value);
+    UserPreferences.getPrefs().flush();
+  }
+
+  /**
    * 统计口径：是否把「仅标记为已播」的单集时长计入统计
    * （上游 `StatisticsFragment.PREF_INCLUDE_MARKED_PLAYED`，默认关闭）。
    * 影响统计页「Subscriptions」汇总与首页「常听经典」的排序。

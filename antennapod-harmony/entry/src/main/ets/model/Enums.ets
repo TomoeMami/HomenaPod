@@ -34,7 +34,10 @@ export enum SortOrder {
   FEED_TITLE_Z_A = 7,
   RANDOM = 8,
   SMART_SHUFFLE_OLD_NEW = 9,
-  SMART_SHUFFLE_NEW_OLD = 10
+  SMART_SHUFFLE_NEW_OLD = 10,
+  /** 下载页排序面板新增：文件大小（对照上游 SortOrder.SIZE_SMALL_LARGE / SIZE_LARGE_SMALL） */
+  SIZE_SMALL_LARGE = 11,
+  SIZE_LARGE_SMALL = 12
 }
 
 export enum EnqueueLocation {

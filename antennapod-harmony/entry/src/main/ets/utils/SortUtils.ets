@@ -21,6 +21,10 @@ export class SortUtils {
         result = SortUtils.durationOf(a) - SortUtils.durationOf(b);
       } else if (order === SortOrder.DURATION_LONG_SHORT) {
         result = SortUtils.durationOf(b) - SortUtils.durationOf(a);
+      } else if (order === SortOrder.SIZE_SMALL_LARGE) {
+        result = SortUtils.sizeOf(a) - SortUtils.sizeOf(b);
+      } else if (order === SortOrder.SIZE_LARGE_SMALL) {
+        result = SortUtils.sizeOf(b) - SortUtils.sizeOf(a);
       }
       if (result === 0) {
         return b.pubDate - a.pubDate;
@@ -114,6 +118,11 @@ export class SortUtils {
 
   static durationOf(item: FeedItem): number {
     return item.media !== undefined ? item.media.duration : 0;
+  }
+
+  /** 文件大小（字节）：未下载/无媒体记录时为 0（上游 FeedMedia.getSize） */
+  static sizeOf(item: FeedItem): number {
+    return item.media !== undefined ? item.media.size : 0;
   }
 
   private static compareText(a: string, b: string): number {

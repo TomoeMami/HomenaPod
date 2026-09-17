@@ -10,7 +10,7 @@
 ## 结论摘要
 
 1. **下载执行层是重写而非移植**：上游依赖 WorkManager + 前台 `DownloadService`（模块未检出），移植版用 `@ohos.request` 的 `request.downloadFile`（`DownloadManager.ets:72`）。能力面显著收窄：无队列/并发上限、无重试退避、无失败原因分类、无跨进程持久化（`statusMap` 为静态内存表，`DownloadManager.ets:22,31`，进程重启即丢失）。
-2. **下载日志页只做到"能看能清"**：清空历史、空状态、进行中进度行对齐；但失败原因文案（`DownloadErrorLabel` 22 种映射）、重试按钮、详情对话框、排序、下拉刷新、搜索、批量选择 **全部缺失**；日志行 `onTap` 为空实现（`DownloadsPage.ets:168-169`）。
+2. **下载页已按上游重做（第 53 轮）**：页面主体改为「已下载单集列表」（进行中的下载按上游顺序并入），下载记录拆成独立底部弹层；工具栏补齐搜索 / 下载记录 / 溢出（删除已播放·刷新·排序），并补下拉刷新、滑动动作、长按上下文菜单、多选动作栏。日志行的状态图标、类型 + 相对时间、红色原因行、「点按查看详情」、重试抑制、日志详情对话框均已对齐；仅「日志类型只记 media（无 FEED）」在 F1 中已补订阅刷新失败记录。
 3. **自动下载只保留最小可用子集**：全局开关 + 仅 WiFi + 仅充电 + 集数上限 + 每 Feed 过滤器。缺 `prefEnableAutoDlQueue`（入队自动下载）；缓存上限由"集数枚举含无限"改为自由数字输入（**默认 50 vs 上游 20/25**）；"仅充电"**默认值与上游相反**。
 4. **自动清理只剩二元开关**：`prefAutoDeleteLocal`、`prefFavoriteKeepsEpisode`、`prefEpisodeCleanup`（-3/-1/0/12/24/72/120/168/-2 九档）全缺，只在"播放完成"时按每 Feed 4 档策略删除（`PlaybackOrchestrator.ets:77-98`），无周期性维护任务。
 5. **6 类能力整块缺失**：数据目录选择、数据库导出/导入、自动数据库备份、代理、HTML/收藏导出、移动网络更新类型 6 项粒度。移植版以 `StoragePage`（按订阅占用 + 单订阅删除 + 清空全部）作为上游所没有的替代物。
@@ -31,20 +31,20 @@
 | 1 · 主按钮决策链 | `actionbutton/ItemActionButton.java:35-56`（playing→pause / local→playLocal / downloaded→play / downloading→cancel / streamOverDownload→stream / else→download） | `FeedDetailPage.ets:383-400`、`:952-961` | 🔸 | 缺 playing/pause 与 `prefStreamOverDownload` 分支；`downloadState()` 只用 fileUrl + 会话状态 |
 | 1 · MIME/扩展名推断 | `parser/feed/util/MimeTypeUtils.java`（**模块未检出**，依据 `FeedMedia` 调用点推断） | `utils/MimeTypeUtils.ets:18-45`（guessExtension）、`:47-87`（guessMimeType） | 🔸 | 映射表较短（无上游 `TypeGetter` 的多级回退）；`guessExtension` 兜底 `.mp3` |
 | 1 · 进度/失败事件 | `event` 模块未检出；`activity/MainActivity.java:235-267` 用 WorkManager LiveData 取进度 | `events/EventHub.ets` + `DownloadManager.ets:79-116` | 🔸 简化/替代 | EventHub 替代 EventBus+WorkManager LiveData；**进程重启后任务态丢失** |
-| 1 · 下载日志写入 | `DBWriter`（`storage:database` **未检出**，依据 `DownloadLogFragment.java:103` 推断） | `DownloadManager.ets:198-208` | 🔸 | `reason` 恒为 `REASON_USER=0`（`:17`）；detail 为硬编码中文 `'下载完成'/'下载失败 code=N'` |
-| **2 下载列表 · 已完成列表数据源** | `ui/screen/download/CompletedDownloadsFragment.java:306-343`（`DBReader.getEpisodes` + runningDownloads 合并） | `DownloadsPage.ets:257-294` | 🔸 | 移植版把"进行中"与"下载记录"拆成两个区块，记录来自 DownloadLog 表（`DownloadLogRepository.ets:9-21`）而非 FeedItem 表 |
-| 2 · 排序 | `CompletedDownloadsFragment.java:396-417`（DownloadsSortDialog，4 种） | 无 | ⬜ 缺失 | 固定 `ORDER BY completion_date DESC`（`DownloadLogRepository.ets:11`） |
-| 2 · 工具栏菜单 | `app/src/main/res/menu/downloads_completed.xml:7-31`（搜索/日志/删除已播放/刷新/排序）；`CompletedDownloadsFragment.java:172-205` | `DownloadsPage.ets:45-54`（仅"清空历史"） | ⬜ 缺失 | 无搜索、无刷新、无"删除已播放的下载"（上游 `:185-203`）、无排序 |
-| 2 · 下拉刷新 | `CompletedDownloadsFragment.java:104-107`（→ `FeedUpdateManager.runOnceOrAsk`） | 无 | ⬜ 缺失 | 下载页无法触发订阅刷新 |
-| 2 · 批量选择/滑动操作 | `CompletedDownloadsFragment.java:113-130`（SwipeActions + FloatingSelectMenu） | 无 | ⬜ 缺失 | |
-| 2 · 空状态 | `CompletedDownloadsFragment.java:242-248`；`DownloadLogFragment.java:65-69` | `DownloadsPage.ets:73-79`、`:104-111` | ✅ 对齐 | |
-| 2 · 清空下载日志 | `DownloadLogFragment.java:100-107` → `DBWriter.clearDownloadLog()`；`res/menu/download_log.xml:6-11` | `DownloadsPage.ets:296-304` → `DownloadLogRepository.ets:36-39` | ✅ 对齐 | |
-| 2 · 日志条目状态文案 | `DownloadLogAdapter.java:55-71`（类型 + 相对时间 `DateUtils.getRelativeTimeSpanString`） | `DownloadsPage.ets:342-355` | 🔸 | 不区分 feed/media 类型；用 `toLocaleString()` 绝对时间 |
-| 2 · 失败原因分类 | `DownloadErrorLabel.java:14-45`（22 种 `DownloadError` → 文案） | 无 | ⬜ 缺失 | 只显示"下载失败"（`DownloadsPage.ets:344-345`），不展示 `reasonDetailed` |
-| 2 · 重试按钮 | `DownloadLogAdapter.java:90-121`（feed→`runOnce`；media→`DownloadActionButton.onClick`） | 无 | ⬜ 缺失 | |
-| 2 · "更新已成功"判定 | `DownloadLogAdapter.java:125-133`（`newerWasSuccessful`） | 无 | ⬜ 缺失 | 不会隐藏已过期的失败项 |
-| 2 · 详情对话框 | `DownloadLogDetailsDialog.java:61-168`；`res/layout/download_log_details_dialog.xml:1-154` | 无 | ⬜ 缺失 | `logRow.onTap` 空实现（`DownloadsPage.ets:168-169`）；无播客/单集/人读原因/技术原因/URL、无复制、无跳转订阅 |
-| 2 · 日志行视图 | `DownloadLogItemViewHolder.java:14-37`；`res/layout/downloadlog_item.xml` | `DownloadsPage.ets:163-171`（复用 `EpisodeRow`，`showAction:false`） | 🔸 简化/替代 | 无 icon、无 reason 行、无 `tapForDetails`、无次要动作按钮 |
+| 1 · 下载日志写入 | `DBWriter`（`storage:database` **未检出**，依据 `DownloadLogFragment.java:103` 推断） | `DownloadManager.ets:198-208` | 🔸 | `reason` 恒为 `REASON_USER=0`（`:19`，未做 F2 的真实错误枚举）；detail 失败为 `code=N`、成功为资源串 `download_log_success_detail`（F4 已资源化）；订阅刷新失败另写一条 FEED 类型记录（`RefreshService.ets:103-108`） |
+| **2 下载列表 · 已完成列表数据源** | `ui/screen/download/CompletedDownloadsFragment.java:306-343`（`DBReader.getEpisodes` + runningDownloads 合并） | `DownloadsPage.ets`（`listDownloadedItems` + `getActiveTasks` 合并，进行中在前） | ✅ 对齐 | 第 53 轮改为「已下载单集列表」（含进行中的下载）；下载记录改为独立弹层（`logSheet`），不再与列表混排 |
+| 2 · 排序 | `CompletedDownloadsFragment.java:396-417`（DownloadsSortDialog，4 种） | `DownloadsPage.ets` 排序面板（日期/单集标题/时长/大小 × 正反） | ✅ 对齐 | 新增 `SortOrder.SIZE_SMALL_LARGE/SIZE_LARGE_SMALL` 与 `SortUtils.sizeOf`；写 `prefDownloadsSortedOrder`，与设置页「存储」循环行共用 |
+| 2 · 工具栏菜单 | `app/src/main/res/menu/downloads_completed.xml:7-31`（搜索/日志/删除已播放/刷新/排序）；`CompletedDownloadsFragment.java:172-205` | `DownloadsPage.ets`（`normalHeader` + `overflowMenu`） | ✅ 对齐 | 搜索 / 下载记录为常驻图标，删除已播放（含确认框）/ 刷新 / 排序在溢出菜单 |
+| 2 · 下拉刷新 | `CompletedDownloadsFragment.java:104-107`（→ `FeedUpdateManager.runOnceOrAsk`） | `DownloadsPage.ets:refreshFeeds`（`Refresh` + `RefreshService.refreshAll` + `REFRESH_STATE` 联动） | ✅ 对齐 | 与订阅页 / 收件箱同一套语义 |
+| 2 · 批量选择/滑动操作 | `CompletedDownloadsFragment.java:113-130`（SwipeActions + FloatingSelectMenu） | `DownloadsPage.ets`（`SwipeActions(SwipeScreen.DOWNLOADS)` + 112vp 多选动作栏 + 全选/以上/以下） | ✅ 对齐 | 划出动作沿用设置里的「已下载」屏配置（默认右=加入队列、左=删除文件） |
+| 2 · 空状态 | `CompletedDownloadsFragment.java:242-248`；`DownloadLogFragment.java:65-69` | `DownloadsPage.ets`（列表空态 `no_comp_downloads_head_label`；弹层空态 `no_log_downloads_*`） | ✅ 对齐 | 两个空态的图标 / 标题 / 说明与上游同名资源一一对应 |
+| 2 · 清空下载日志 | `DownloadLogFragment.java:100-107` → `DBWriter.clearDownloadLog()`；`res/menu/download_log.xml:6-11` | 弹层工具栏 trash → `DownloadLogRepository.clear()` | ✅ 对齐 | 位置也回到日志弹层工具栏（上游无二次确认，保持一致）；日志上限 200 条（B3，`DownloadLogRepository.MAX_ENTRIES`） |
+| 2 · 日志条目状态文案 | `DownloadLogAdapter.java:55-71`（类型 + 相对时间 `DateUtils.getRelativeTimeSpanString`） | `DownloadsPage.ets`（`logStatusText` + `relativeTime`，走 `time_*` 资源串） | ✅ 对齐 | 「Media file / Feed · N 分钟前」，超过 7 天回落本地日期 |
+| 2 · 失败原因分类 | `DownloadErrorLabel.java:14-45`（22 种 `DownloadError` → 文案） | `common/DownloadErrorLabel.ets`（11 种 `@ohos.request` 码）+ `DownloadsPage.ets:logReasonText` | 🔸 | 受平台错误码粒度限制；非 `code=` 前缀（如订阅更新失败）按原文展示 |
+| 2 · 重试按钮 | `DownloadLogAdapter.java:90-121`（feed→`runOnce`；media→`DownloadActionButton.onClick`） | `DownloadsPage.ets:retryLogEntry` | ✅ 对齐 | 已实现（前版本即已补）：feed → `RefreshService.refreshFeed`，media → 下载；移动网络下先确认（C8，300s 免打扰） |
+| 2 · "更新已成功"判定 | `DownloadLogAdapter.java:125-133`（`newerWasSuccessful`） | `DownloadsPage.ets:showLogRetry` | ✅ 对齐 | 更新的记录里已有成功记录时不再显示重试钮 |
+| 2 · 详情对话框 | `DownloadLogDetailsDialog.java:61-168`；`res/layout/download_log_details_dialog.xml:1-154` | `DownloadsPage.ets:logDetailsDialog` | ✅ 对齐 | 播客（+「打开」跳订阅）/ 单集 / 状态 / 技术细节 / 文件 URL（点按复制）/ 「复制到剪贴板」/ 确定 |
+| 2 · 日志行视图 | `DownloadLogItemViewHolder.java:14-37`；`res/layout/downloadlog_item.xml` | `DownloadsPage.ets:logRow` | ✅ 对齐 | 16dp 状态图标（成功 ✓ / 失败 ! / 文件已存在 ⓘ）+ 标题 + 状态行 + 红色原因行 + 「点按查看详情」+ 48dp 重试钮，无封面 |
 | **3 自动下载 · 全局开关** | `ui/preferences/.../res/xml/preferences_autodownload.xml:4-8` `prefEnableAutoDl`(false)；`storage/preferences/.../UserPreferences.java:570-572` | `SettingsPage.ets:146-150`；`prefs/UserPreferences.ets:150-157`（键 `prefAutoDownload`） | ✅ 对齐 | 语义一致（默认 false）；**键名不同** |
 | 3 · 入队时自动下载 | `preferences_autodownload.xml:9-13` `prefEnableAutoDlQueue`(false)；`UserPreferences.java:574-576` | 无 | ⬜ 缺失 | |
 | 3 · 缓存上限 | `preferences_autodownload.xml:14-20` `prefEpisodeCacheSize`（values 5/10/25/50/100/500/-1，`ui/preferences/.../values/arrays.xml:118-136`）；`UserPreferences.java:566-568` | `SettingsPage.ets:158-165`、`:632-638`；`UserPreferences.ets:178-185` | 🔸 | 上游枚举含"无限(-1)"，XML 默认 25 而 `UserPreferences.java:567` 默认 20（上游自身不一致）；移植版自由数字输入，默认 **50**，无"无限"档 |
@@ -103,16 +103,16 @@
 ## 关键行为差异
 
 1. **并发数**：上游 `DownloadService`（未检出）由 WorkManager 唯一任务名 + 队列约束管理；移植版**无并发上限**——每次 `startDownload` 都新建一个 `request.downloadFile` 任务（`DownloadManager.ets:72-74`），`AutoDownloadService.ets:36-54` 可在循环中连续创建多个任务，仅靠 `statusMap` 按 `mediaId` 去重。
-2. **重试**：上游依赖 WorkManager 退避重试（`net/download` 未检出）；移植版失败后直接清残留并置 `FAILED`（`DownloadManager.ets:105-116`），**无自动重试、无退避**；刷新侧同理（`RefreshService.ets:48-50` 仅记日志）。
+2. **重试**：上游依赖 WorkManager 退避重试（`net/download` 未检出）；移植版失败后直接清残留并置 `FAILED`（`DownloadManager.ets:105-116`），**无自动重试、无退避**；刷新侧同理（`RefreshService.ets:48-50` 仅记日志）。第 53 轮修正：`startDownload` 原先见 `statusMap` 已有该 mediaId 就直接返回，而 `FAILED` 终态永不清除，导致**失败过的单集在进程重启前无法重试**（订阅页/下载记录的重试都静默失效）；现改为只挡 `RUNNING/PAUSED`。
 3. **暂停/继续**：移植版走 `task.pause()/resume()`（`DownloadManager.ets:119-139`），只对**当前进程内**存活任务有效；`statusMap` 是静态内存表（`:22`），进程被杀后任务与进度丢失，`fileUrl` 为空的单集在 UI 退回 `IDLE`（`FeedDetailPage.ets:960`）。上游由持久化 Worker 保证跨进程续传。
-4. **失败原因分类**：上游 `DownloadErrorLabel.java:14-45` 把 22 种 `DownloadError` 映射为可读文案，并对 `ERROR_PARSER_EXCEPTION_DUPLICATE` 用 info 图标（`DownloadLogAdapter.java:80-84`）；移植版只写 `'下载失败 code=' + err`（`DownloadManager.ets:111`），UI 不展示该字段（`DownloadsPage.ets:343-348`）。
+4. **失败原因分类**：上游 `DownloadErrorLabel.java:14-45` 把 22 种 `DownloadError` 映射为可读文案，并对 `ERROR_PARSER_EXCEPTION_DUPLICATE` 用 info 图标（`DownloadLogAdapter.java:80-84`）；移植版按 `@ohos.request` 的 11 种错误码建表（`DownloadErrorLabel.ets`，**与 `request.ERROR_*` 运行期常量比对**——实机验收发现写死数值会把 HTTP 404 误标成「存储空间不足」），行内以红色原因行展示，`ERROR_FILE_ALREADY_EXISTS` 用 info 图标近似上游的「重复」分类；`reason` 字段仍是 `REASON_USER=0`（未做 F2 的真实枚举）。
 5. **自动下载缓存阈值语义**：上游 `getEpisodeCacheSize()`（`UserPreferences.java:566-568`）按**集数**且含 `-1` 无限档；移植版 `getEpisodeCacheCount()`（`UserPreferences.ets:178-185`）默认 50、无无限档，判定是"已下载数 ≥ limit 即整体停止"（`AutoDownloadService.ets:44-47`），非上游的按 Feed 分摊。另：`UserPreferences.ets:85-87` 的 `getEpisodeCacheSizeMb()` 保留但**全库无调用**。
 6. **自动清理算法阈值**：上游 9 档（`arrays.xml:201-211`：-3 保留收藏 / -1 保留队列 / 0 听完即删 / 12、24、72、120、168 小时后 / -2 永不），由 `AutomaticDeletionPreferencesFragment.java:66-91` 动态生成文案；移植版只有布尔 `prefAutoDelete`（`PlaybackOrchestrator.ets:85-89`）叠加每 Feed 4 档，**无时间阈值、无收藏/队列保留策略**。
 7. **定时刷新最小间隔**：上游最小档 60 分钟（`arrays.xml:60-69`）；移植版 `WorkSchedulerManager.ets:8,12` 用 `Math.max(2h, interval)` 硬抬到 2 小时，输入侧另限 ≥120（`SettingsPage.ets:616`）。同时 `networkType: NETWORK_TYPE_WIFI`（`:17`）强制 WiFi，忽略上游 `prefMobileUpdateTypes.feed_refresh`。
 8. **定时刷新生命周期**：上游每次 `MainActivity` 启动都 `restartUpdateAlarm`（`MainActivity.java:216`）；移植版只在设置页点"应用"时 `workScheduler.startWork`（`SettingsPage.ets:619`），`EntryAbility.ets` 无调用——**重装/清数据后调度不会自动重建**。
 9. **默认值相反的两处**：`prefEnableAutoDownloadOnBattery` 上游 **true**（`preferences_autodownload.xml:22-25`、`UserPreferences.java:578-580`）vs 移植版 `prefAutoDownloadChargingOnly` **false**（`UserPreferences.ets:168-175`）；`prefDeleteRemovesFromQueue` 上游 **false**（`UserPreferences.java:452`）vs 移植版 **true**（`UserPreferences.ets:196-198`）。
-10. **取消下载不解除自动下载**：上游 `CancelDownloadActionButton.java:35-36` 显式 `item.disableAutoDownload()` + `DBWriter.setFeedItem`；移植版 `DownloadManager.remove()`（`:141-158`）只清任务与文件，`item.autoDownloadEnabled` 不变，下次刷新会被 `AutoDownloadService` 重新拉起。
-11. **时间显示**：上游日志用相对时间（`DownloadLogAdapter.java:63-64`），移植版用 `toLocaleString()`（`DownloadsPage.ets:354`）。
+10. **取消下载已回写自动下载标记（第 53 轮核对）**：上游 `CancelDownloadActionButton.java:35-36` 显式 `item.disableAutoDownload()` + `DBWriter.setFeedItem`；移植版 `DownloadManager.remove()` 已补同一动作（`DownloadManager.ets:194-202`），取消后不会被 `AutoDownloadService` 重新拉起。此项**已对齐**。
+11. **时间显示**：上游日志用相对时间（`DownloadLogAdapter.java:63-64`），移植版已改为「类型 · 相对时间」（`DownloadsPage.ets:relativeTime`），超过 7 天回落本地日期。
 12. **刷新并发与分页**：移植版 `refreshAll` 串行、每 Feed 最多 5 页（`RefreshService.ets:17,34-51,78-94`），无并发；上游（未检出）由 Worker 并发调度。
 
 ## 移植版独有
@@ -123,7 +123,7 @@
 - `UserPreferences.ets:104-111` `prefEpisodeNotification` 全局新单集通知开关（上游只有每 Feed 开关）。
 - `AutoDownloadService.ets:68-86` 网络/电量检测失败时放行并记日志的兜底策略。
 - `DownloadManager.ets:64,109,148-152` 显式清理残留分片文件（取消/失败/中断），并注明 `request` 不删已落盘部分文件。
-- `DownloadsPage.ets:174-211` 下载行长按菜单（暂停/继续 + 取消下载）；上游取消入口在列表主按钮（`CancelDownloadActionButton`）。
+- `DownloadsPage.ets` 下载页行内按钮默认是「删除文件」，可在设置页「用户界面」切到「播放」（对齐上游 `prefDownloadsButtonAction`）；**进行中下载的「暂停/继续」按钮是移植版独有**（上游 `DownloadServiceInterface` 只有 `downloadNow/cancel`，没有 pause/resume API），行内进度也用 4vp 线性条 + 百分比呈现，而不是上游操作钮外的 40dp 进度环。
 - `FeedDetailPage.ets:236-266` 流播前移动网络二次确认（`prefStreamConfirmMobile`，`UserPreferences.ets:205-212`），语义上对应上游 `DownloadActionButton.java:66-88` 的下载确认。
 
 ## 存疑/需进一步核实
@@ -135,6 +135,6 @@
 5. **`prefShowDownloadReport`（下载错误通知开关）**——`preferences_notifications.xml:7-12` 存在，`UserPreferences.java:59,368` 有 getter；移植版无对应实现，但该开关的消费点在 `net/download`（未检出），行为边界无法确认。
 6. **上游 `prefEpisodeCacheSize` 默认值冲突**：XML 为 `25`（`preferences_autodownload.xml:15`）而 `UserPreferences.java:567` 为 `20`。移植版 50 是否对应某个上游版本，需核对基线 commit。
 7. **移植版 `getMobileUpdateAllowed()`（`UserPreferences.ets:56-59`）无调用点**——确认是死代码还是预留接线（如 `HttpClient` 的移动网络门控）。
-8. **`IDLE` 状态行的可见性**：`DownloadManager.getStatus()` 返回 `IDLE`，而 `DownloadsPage.ets:266-268` 过滤 `DONE/REMOVED/FAILED`——`IDLE` 行会出现在进行中列表且进度为 0，是否会造成"任务短暂消失/残留"体验问题需真机验证。
-9. **`prefDownloadsButtonAction` 与 `prefStreamOverDownload` 是否应接入 `FeedDetailPage` 主按钮**——目前两者仅存在于设置页（`SettingsPage.ets:103-107`），未参与 `:383-400` 决策，属功能缺口还是有意简化需产品侧确认。
+8. ~~**`IDLE` 状态行的可见性**~~ **已核实不成立（第 53 轮）**：`statusMap` 只会在 `RUNNING/PAUSED/DONE/FAILED` 之间变化，`DownloadManager.getActiveTasks()` 返回的快照里 `DONE/REMOVED/FAILED` 均被过滤，`IDLE` 永远进不了进行中列表。
+9. **`prefDownloadsButtonAction` 与 `prefStreamOverDownload` 是否应接入主按钮**——`prefDownloadsButtonAction` 已实现（`UserPreferences.getDownloadsButtonPlay` + 设置页「用户界面」开关 + 下载页行内按钮，第 53 轮）；`prefStreamOverDownload` 仍未参与 `FeedDetailPage` 主按钮决策（`:383-400`），是否补需产品侧确认。
 10. **`prefEnableAutoDlQueue` 在移植版的等价语义**：上游该开关控制"仅对已入队单集自动下载"；移植版 `QueueEngine` 是否已有等价路径未核实。

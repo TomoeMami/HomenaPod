@@ -1543,6 +1543,138 @@
     {
       "name": "play_this_to_seek_position_message",
       "value": "请先播放这一集，再跳转到该位置"
+    },
+    {
+      "name": "downloads_log_label",
+      "value": "下载记录"
+    },
+    {
+      "name": "no_log_downloads_head_label",
+      "value": "暂无下载记录"
+    },
+    {
+      "name": "no_log_downloads_label",
+      "value": "有下载记录时会显示在这里。"
+    },
+    {
+      "name": "no_comp_downloads_head_label",
+      "value": "暂无已下载单集"
+    },
+    {
+      "name": "download_error_tap_for_details",
+      "value": "点按查看详情。"
+    },
+    {
+      "name": "download_type_feed",
+      "value": "订阅"
+    },
+    {
+      "name": "download_type_media",
+      "value": "媒体文件"
+    },
+    {
+      "name": "download_log_title_unknown",
+      "value": "未知标题"
+    },
+    {
+      "name": "clear_history_label",
+      "value": "清空历史"
+    },
+    {
+      "name": "delete_downloads_played",
+      "value": "删除已播放"
+    },
+    {
+      "name": "delete_downloads_played_confirmation",
+      "value": "确认删除全部已播放的下载吗？"
+    },
+    {
+      "name": "download_log_details_human_readable_reason_title",
+      "value": "状态"
+    },
+    {
+      "name": "download_log_details_technical_reason_title",
+      "value": "技术细节"
+    },
+    {
+      "name": "download_log_details_file_url_title",
+      "value": "文件 URL"
+    },
+    {
+      "name": "download_log_open_feed",
+      "value": "打开"
+    },
+    {
+      "name": "download_error_details",
+      "value": "详情"
+    },
+    {
+      "name": "copy_to_clipboard",
+      "value": "复制到剪贴板"
+    },
+    {
+      "name": "download_successful",
+      "value": "成功"
+    },
+    {
+      "name": "download_log_success_detail",
+      "value": "下载完成"
+    },
+    {
+      "name": "download_error_feed_refresh",
+      "value": "订阅更新失败"
+    },
+    {
+      "name": "dialog_ok",
+      "value": "确定"
+    },
+    {
+      "name": "feed_label",
+      "value": "播客"
+    },
+    {
+      "name": "episode_label",
+      "value": "单集"
+    },
+    {
+      "name": "size",
+      "value": "大小"
+    },
+    {
+      "name": "sort_label",
+      "value": "排序"
+    },
+    {
+      "name": "setting_downloads_button_play",
+      "value": "下载页按钮改为「播放」"
+    },
+    {
+      "name": "confirm_mobile_download_dialog_title",
+      "value": "使用移动网络下载？"
+    },
+    {
+      "name": "confirm_mobile_download_dialog_message",
+      "value": "当前不在 Wi-Fi 网络，下载将消耗移动数据。"
+    },
+    {
+      "name": "confirm_mobile_download_dialog_allow_this_time",
+      "value": "本次允许"
+    },
+    {
+      "name": "time_just_now",
+      "value": "刚刚"
+    },
+    {
+      "name": "time_minutes_ago",
+      "value": "%1$s 分钟前"
+    },
+    {
+      "name": "time_hours_ago",
+      "value": "%1$s 小时前"
+    },
+    {
+      "name": "time_days_ago",
+      "value": "%1$s 天前"
     }
   ]
 }
