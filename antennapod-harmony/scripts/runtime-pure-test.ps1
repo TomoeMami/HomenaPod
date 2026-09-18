@@ -35,7 +35,7 @@ $models = @('Enums','Feed','FeedItem','FeedMedia','FeedPreferences','Chapter','P
 $utils = @('DurationUtils','DateUtils','MimeTypeUtils','HtmlCleaner','ShownotesText','SortUtils','InboxBaseline')
 $parser = @('XmlReader','FeedParser')
 # player 下只有「纯逻辑」文件能进这里：不 import 任何 @kit.*（OutputDevicePolicy 便是如此）
-$player = @('OutputDevicePolicy')
+$player = @('OutputDevicePolicy','MediaButtonPolicy')
 foreach ($m in $models) { Copy-Item (Join-Path $src "model/$m.ets") (Join-Path $work "model/$m.ts") }
 foreach ($u in $utils) { Copy-Item (Join-Path $src "utils/$u.ets") (Join-Path $work "utils/$u.ts") }
 foreach ($p in $parser) { Copy-Item (Join-Path $src "parser/$p.ets") (Join-Path $work "parser/$p.ts") }
@@ -289,6 +289,43 @@ assert.strictEqual(OutputDevicePolicy.isHeadset(DeviceClasses.BUILT_IN), false);
 assert.strictEqual(OutputDevicePolicy.isHeadset(DeviceClasses.OTHER), false);
 assert.strictEqual(OutputDevicePolicy.isBluetooth(DeviceClasses.BLUETOOTH), true);
 assert.strictEqual(OutputDevicePolicy.isBluetooth(DeviceClasses.WIRED), false);
+
+// ---- 蓝牙耳机「下一首 / 上一首」按键重映射（MediaButtonPolicy）----
+const { MediaButtonPolicy, MediaButtonCommands, MediaButtonActions } =
+  require('./player/MediaButtonPolicy.js');
+const NEXT = MediaButtonCommands.NEXT;
+const PREVIOUS = MediaButtonCommands.PREVIOUS;
+const SEEK_FORWARD = MediaButtonActions.SEEK_FORWARD;
+const SEEK_BACK = MediaButtonActions.SEEK_BACK;
+const NEXT_EPISODE = MediaButtonActions.NEXT_EPISODE;
+const RESTART = MediaButtonActions.RESTART;
+const DURATION = 30 * 60 * 1000;
+
+// ① 非蓝牙来源（播控中心卡片 / 锁屏 / 车机 / 其它应用）：语义与改造前完全一致
+assert.strictEqual(MediaButtonPolicy.resolve(NEXT, false, 5 * 60 * 1000, DURATION), NEXT_EPISODE);
+assert.strictEqual(MediaButtonPolicy.resolve(NEXT, false, DURATION - 1000, DURATION), NEXT_EPISODE);
+assert.strictEqual(MediaButtonPolicy.resolve(PREVIOUS, false, 5 * 60 * 1000, DURATION), RESTART);
+assert.strictEqual(MediaButtonPolicy.resolve(PREVIOUS, false, 0, DURATION), RESTART);
+
+// ② 蓝牙「下一首」= 快进；只有结尾前 10 秒内才真的切下一集
+assert.strictEqual(MediaButtonPolicy.resolve(NEXT, true, 5 * 60 * 1000, DURATION), SEEK_FORWARD);
+assert.strictEqual(MediaButtonPolicy.resolve(NEXT, true, DURATION - 10001, DURATION), SEEK_FORWARD);
+assert.strictEqual(MediaButtonPolicy.resolve(NEXT, true, DURATION - 10000, DURATION), NEXT_EPISODE);
+assert.strictEqual(MediaButtonPolicy.resolve(NEXT, true, DURATION, DURATION), NEXT_EPISODE);
+// 时长未知（未 prepare / 直播）：按「不在结尾」处理，快进由播放器自行 clamp
+assert.strictEqual(MediaButtonPolicy.resolve(NEXT, true, 5 * 60 * 1000, 0), SEEK_FORWARD);
+
+// ③ 蓝牙「上一首」= 快退；只有开头 2 秒内保持「回到开头」
+assert.strictEqual(MediaButtonPolicy.resolve(PREVIOUS, true, 0, DURATION), RESTART);
+assert.strictEqual(MediaButtonPolicy.resolve(PREVIOUS, true, 2000, DURATION), RESTART);
+assert.strictEqual(MediaButtonPolicy.resolve(PREVIOUS, true, 2001, DURATION), SEEK_BACK);
+assert.strictEqual(MediaButtonPolicy.resolve(PREVIOUS, true, 5 * 60 * 1000, DURATION), SEEK_BACK);
+
+// ④ 结尾判定自身的边界
+assert.strictEqual(MediaButtonPolicy.isNearEnd(0, 10000), true);
+assert.strictEqual(MediaButtonPolicy.isNearEnd(0, 10001), false);
+assert.strictEqual(MediaButtonPolicy.isNearEnd(5000, 5000), true);
+assert.strictEqual(MediaButtonPolicy.isNearEnd(0, 0), false);
 
 // ---- 节目详情（shownotes）：去标签保留换行 + 时间码识别 ----
 // 换行：旧的 PlayerPage.plainText 把标签换成空格后 `\s+` → ' '，<br>/<p>/真实换行全被吃掉

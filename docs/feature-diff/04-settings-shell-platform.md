@@ -124,7 +124,7 @@
 | Android Auto | `app/src/main/res/xml/automotive_app_desc.xml:1-4` + `AndroidManifest.xml:63-65` | 无 | ⬜ 缺失 | — |
 | 投屏（Chromecast） | `playback:cast` **模块未检出**（`settings.gradle:41`）；调用点 `MainActivity.java:51`（`CastEnabledActivity`） | 无 | ⬜ 缺失 | 依调用点推断上游有投屏能力 |
 | Wear OS | `app-wearos` **模块未检出**（`settings.gradle:20`） | 无 | ⬜ 缺失 | 仅知存在独立模块 |
-| 媒体键/耳机按键 | `ui/app-start-intent/.../MediaButtonStarter.java:1-49`、`MainActivity.java` keyEvent | `player/AvSessionBridge.ets:1-371`（AVSession 媒体控制） | 🔸 简化/替代 | 移植版依赖系统媒体控制，无自定义按键映射 |
+| 媒体键/耳机按键 | `ui/app-start-intent/.../MediaButtonStarter.java:1-49`、`MainActivity.java` keyEvent、`PlaybackService.java:688-774`（keycode 处理，未检出模块） | `player/AvSessionBridge.ets:104-200`（AVSession 媒体控制）+ `player/MediaButtonPolicy.ets`（第 53 轮） | 🔸 简化/替代 | 移植版仍依赖系统媒体控制、不做按键可配置；但已补上「蓝牙来源的下一首/上一首 = 快进/快退」（靠 `CommandInfo.callerType === TYPE_BLUETOOTH`，API 22+；详见 `02-playback-audio.md`） |
 | 权限声明 | `AndroidManifest.xml:6-14`（9 项） | `module.json5:47-63`（5 项） | 🔸 简化/替代 | 移植版缺 WAKE_LOCK/BOOT_COMPLETED/BLUETOOTH 对应能力 |
 | 后台任务 | `MainActivity.java:53-54`（`DatabaseMaintenanceWorker`、`AutomaticDatabaseExportWorker`） | `work/WorkSchedulerManager.ets:1-42`、`work/RefreshWorkSchedulerExtensionAbility.ets:1-21` | 🔸 简化/替代 | 移植版只有定时刷新，无数据库维护/自动备份任务 |
 | 启动意图参数 | `PreferenceActivity.java:34-61`（`OPEN_AUTO_DOWNLOAD_SETTINGS` / `OPEN_PLAYBACK_SETTINGS`） | 无 | ⬜ 缺失 | 移植版不能从外部直接打开某设置子屏 |

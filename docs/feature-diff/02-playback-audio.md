@@ -9,7 +9,7 @@
 
 1. **播放页是「单页 + 弹层」重写**，控制项齐全（倍速/快退/播放/快进/下一集），但封面只画占位图标、进度条退化为普通 `Slider`（无章节分隔线/二级缓冲/拖动浮层），`CoverFragment`/`ItemDescriptionFragment`/`NoRelayoutTextView` 的图片与 WebView 富文本能力丢失。
 2. **倍速是离散档位**（`[0.5,0.75,1.0,1.25,1.5,1.75,2.0]`）而非上游 0.5–4.0 连续滑杆 + 用户自定义预设；**跳过静音整条链路缺失**（仅剩一个无调用点的 `getSkipSilence()`）。
-3. **耳机/蓝牙中断只保留一个合并开关** `prefAutoResumeAfterInterrupt`；上游三项独立偏好（`prefPauseOnHeadsetDisconnect`/`prefUnpauseOnHeadsetReconnect`/`prefUnpauseOnBluetoothReconnect`）与**硬件按键重映射**（keycodes 87–90）全部缺失。
+3. **耳机/蓝牙中断只保留一个合并开关** `prefAutoResumeAfterInterrupt`；上游三项独立偏好（`prefPauseOnHeadsetDisconnect`/`prefUnpauseOnHeadsetReconnect`/`prefUnpauseOnBluetoothReconnect`）仍缺失。**硬件按键重映射已补**（第 53 轮）：蓝牙来源的「下一首 / 上一首」按上游 `getHardwareForwardButton`/`getHardwarePreviousButton` 的默认值走快进 / 快退，但鸿蒙侧靠 `CommandInfo.callerType` 而不是 keycode，且不可配置（见下表与「关键行为差异」11）。
 4. **转录/字幕、视频播放、画中画三块整体缺失**：转录仅落库 `podcast:transcript` 的 URL/type（`parser/FeedParser.ets:82-91`），无解析器、无 UI；视频仅列表角标。
 5. **后台播放保障存在致命缺口**：`BackgroundPlaybackGuard` 实现了长时任务，但**全工程从未调用 `start()`**（`entryability/EntryAbility.ets:26` 只调 `setContext`），`module.json5:24-25` 声明的 `backgroundModes: audioPlayback` 未被激活。
 6. **章节来源被砍到只剩数据库**：无 `podcast:chapters` URL 拉取、无 ID3/OGG/M4A 内嵌章节解析（`ChapterUtils`），无上一/下一章节按钮、无章节图片。
@@ -38,7 +38,7 @@
 | 快进/快退秒数默认值 | `UserPreferences.java:582-588`（30s / 10s） | `prefs/UserPreferences.ets:132-148`（30 / 10） | ✅ 对齐 | 默认值与键名一致 |
 | 快进/快退修改入口 | `ui/screen/feed/preferences/SkipPreferenceDialog.java:18-59`；`AudioPlayerFragment.java:199-203,228-232`（长按按钮） | `pages/SettingsPage.ets:89-101,563-608` | 🔸 简化/替代 | 改为设置页数字输入框，**播放页长按改秒数缺失**；无 `seek_delta_values` 固定选项列表 |
 | 每 Feed 跳片头/片尾 | `ui/screen/feed/preferences/FeedPreferenceSkipDialog.java:14-45` | `pages/FeedSettingsPage.ets:177-185,548-551`；`player/PlayerManager.ets:93-99,313-327` | ✅ 对齐 | 弹窗改行内输入；跳片尾用 `timeUpdate` 检测，每集只触发一次 |
-| 硬件按键重映射 | `ui/preferences/src/main/res/values/keycodes.xml:5-8`；`preferences_playback.xml:45-60`；`UserPreferences.java:409-417` | — | ⬜ 缺失 | 无 `prefHardwareForwardButton`/`prefHardwarePreviousButton`，KEYCODE 87–90 无处理 |
+| 硬件按键重映射 | `preferences_playback.xml:45-60`；`UserPreferences.java:409-417`；`PlaybackService.java:728-757`（未检出模块，取自上游 `develop` 源码） | `player/AvSessionBridge.ets:104-200`；`player/MediaButtonPolicy.ets` | 🔸 简化/替代 | 上游按 keycode 重映射：耳机来的 `KEYCODE_MEDIA_NEXT`→`getHardwareForwardButton()`（默认 `KEYCODE_MEDIA_FAST_FORWARD` = 快进 `fastForwardSecs`，默认 30s）、`KEYCODE_MEDIA_PREVIOUS`→`getHardwarePreviousButton()`（默认 `KEYCODE_MEDIA_REWIND` = 快退 `rewindSecs`，默认 10s），通知卡片上的同名按钮仍是「切下一集 / 回到开头」。鸿蒙侧没有 keycode，改用 AVSession 的 `CommandInfo.callerType === TYPE_BLUETOOTH`（API 22+）判定「命令来自蓝牙设备」；**不做按键可配置**（上游的 `keycodes.xml` 四条选项无对应 UI）。两处边界（第 53 轮用户要求）：结尾前 10s 内「下一首」改判为下一集、开头 2s 内「上一首」保持回到开头 |
 | 耳机断开暂停 | `ui/preferences/src/main/res/xml/preferences_playback.xml:5-11`；`UserPreferences.java:397-399`（默认 true） | `player/PlayerManager.ets:333-339`（受系统中断驱动，无开关） | 🔸 简化/替代 | 依赖 `audioInterrupt` 的 PAUSE/STOP 提示，用户不可关闭 |
 | 耳机/蓝牙重连继续 | `preferences_playback.xml:12-27`；`UserPreferences.java:401-407`（耳机 true、蓝牙 false） | `prefs/UserPreferences.ets:214-221`（单一 `prefAutoResumeAfterInterrupt`，默认 true）；`PlayerManager.ets:340-344` | 🔸 简化/替代 | 三项合并为一项，无法区分耳机/蓝牙（上游在 SDK≥31 隐藏后两项：`PlaybackPreferencesFragment.java:53-56`） |
 | 音频中断 duck/unduck | 模块未检出（`playback:service`），依据焦点处理调用点推断 | `player/PlayerManager.ets:345-350` | ➕ 移植版独有 | 抢占时压到 0.3，恢复时按 `volumeAdaption` 还原 |
@@ -94,6 +94,7 @@
 8. **队列位置语义**：`QueueEngine.nextItem()` 恒取 `items[0]`（`QueueEngine.ets:91-96`），`autoAdvance()` **先 remove 再 load**（`QueueEngine.ets:168-178`），而手动播放（`QueuePage.ets:480-494`）不 remove——同一队列存在两种「当前项」语义；上游按 `QueueEvent` 增量维护，队首即当前播放项（`QueueFragment.java:146-181`）。
 9. **自动删除默认值冲突**：移植版 `getDeleteRemovesFromQueue` 默认 true（`UserPreferences.ets:196-198`），上游 `shouldDeleteRemoveFromQueue()` 默认 false（`UserPreferences.java:451-453`），删除下载时是否出队的行为相反。
 10. **AVSession 上报约束**：`duration` 为 0 时不上报（否则原生 `ERR_INVALID_PARAM`），`speed` 必须 >0（`AvSessionBridge.ets:280-290`）——移植版对平台约束的适配，上游无此问题。
+11. **蓝牙按键重映射靠「命令来源」而非 keycode**（第 53 轮）：上游在 `onMediaButtonEvent` 里能直接看到 `KEYCODE_MEDIA_NEXT/PREVIOUS`，从而与通知卡片的同名按钮（`notificationButton=true`）区分；鸿蒙侧两条命令完全同源，只能用 AVSession 的 `CommandInfo.callerType`。**实测（模拟器 phone26 / API 26）**：播控中心卡片的上一首/下一首命令到达时 `callerType` 为 **undefined**（打印成 `callerType=unknown`），因此判定条件是「等于 `TYPE_BLUETOOTH`」而不是「不等于 app」；若真机上蓝牙命令也不带 `callerType`，日志会打印 `callerType=unknown fromBluetooth=false`，此时该特性不会生效（需要改走「当前输出设备是不是蓝牙」的兜底判定）。另：`onPlayNext`/`onPlayPrevious` 是 API 22 才有的回调，低于 API 22 的设备在 `registerSkipCommands` 里回落成原来的 `on('playNext')`（行为与改造前一致，日志有 `falling back`）。
 
 ## 移植版独有
 

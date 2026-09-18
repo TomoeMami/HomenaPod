@@ -17,6 +17,7 @@ import { Playable } from '../model/Playable';
 import { FeedItem } from '../model/FeedItem';
 import { PlayerManager, PlayerStatus } from './PlayerManager';
 import { QueueEngine } from './QueueEngine';
+import { MediaButtonActions, MediaButtonCommands, MediaButtonPolicy } from './MediaButtonPolicy';
 import { EpisodeRepository } from '../db/repositories/EpisodeRepository';
 import { FavoritesRepository } from '../db/repositories/FavoritesRepository';
 import { UserPreferences } from '../prefs/UserPreferences';
@@ -111,15 +112,7 @@ export class AvSessionBridge {
     session.on('stop', (): void => {
       PlayerManager.pause();
     });
-    session.on('playNext', (): void => {
-      QueueEngine.autoAdvance().catch((error: Error) => {
-        Logger.warn(TAG, 'playNext failed: ' + error.message);
-      });
-    });
-    session.on('playPrevious', (): void => {
-      // 播客没有「上一集」历史栈：重播当前单集（与上游 skipToPrevious 的 restart 语义一致）
-      PlayerManager.seek(0);
-    });
+    AvSessionBridge.registerSkipCommands(session);
     session.on('fastForward', (time?: number): void => {
       AvSessionBridge.skipBy(true, time);
     });
@@ -140,6 +133,78 @@ export class AvSessionBridge {
         Logger.warn(TAG, 'toggleFavorite failed: ' + error.message);
       });
     });
+  }
+
+  /**
+   * 注册「下一首 / 上一首」命令。
+   *
+   * 蓝牙耳机的按键重映射（下一首 = 快进、上一首 = 快退，见 MediaButtonPolicy）需要知道
+   * **命令来源**：`onPlayNext` / `onPlayPrevious`（API 22+）会把 `CommandInfo` 一并带回，
+   * 其中 `callerType === TYPE_BLUETOOTH` 即「这条命令来自蓝牙设备」。
+   *
+   * 低于 API 22 的设备没有这组回调，调用会抛错：这时回落到原来的
+   * `on('playNext')` / `on('playPrevious')`，行为与改造前完全一致（蓝牙按键不重映射）。
+   * 注意每条命令只能注册一个回调（新的会替换旧的），所以两条路径必须二选一。
+   */
+  private static registerSkipCommands(session: avSession.AVSession): void {
+    try {
+      session.onPlayNext((info: avSession.CommandInfo): void => {
+        AvSessionBridge.handleSkipCommand(MediaButtonCommands.NEXT, info);
+      });
+      session.onPlayPrevious((info: avSession.CommandInfo): void => {
+        AvSessionBridge.handleSkipCommand(MediaButtonCommands.PREVIOUS, info);
+      });
+      Logger.info(TAG, 'skip commands registered with CommandInfo (bluetooth remap active)');
+    } catch (error) {
+      Logger.warn(TAG, 'onPlayNext/onPlayPrevious unavailable, falling back: ' + (error as Error).message);
+      session.on('playNext', (): void => {
+        AvSessionBridge.skipToNextEpisode();
+      });
+      session.on('playPrevious', (): void => {
+        AvSessionBridge.restartEpisode();
+      });
+    }
+  }
+
+  /** 按 MediaButtonPolicy 的判定执行一条「下一首 / 上一首」命令 */
+  private static handleSkipCommand(command: string, info: avSession.CommandInfo | undefined): void {
+    const caller: string = AvSessionBridge.callerTypeName(info);
+    const fromBluetooth: boolean = caller === avSession.CallerType.TYPE_BLUETOOTH;
+    const position: number = PlayerManager.getCurrentTime();
+    const duration: number = PlayerManager.getDuration();
+    const action: string = MediaButtonPolicy.resolve(command, fromBluetooth, position, duration);
+    // 判定依据全部打出来（来源 + 位置 + 时长）：真机上排查「蓝牙按键为什么没走进快进/快退」全靠这一行
+    Logger.info(TAG, command + ' callerType=' + (caller !== '' ? caller : 'unknown')
+      + ' fromBluetooth=' + fromBluetooth + ' position=' + position + ' duration=' + duration
+      + ' -> ' + action);
+    if (action === MediaButtonActions.SEEK_FORWARD) {
+      AvSessionBridge.skipBy(true);
+    } else if (action === MediaButtonActions.SEEK_BACK) {
+      AvSessionBridge.skipBy(false);
+    } else if (action === MediaButtonActions.NEXT_EPISODE) {
+      AvSessionBridge.skipToNextEpisode();
+    } else {
+      AvSessionBridge.restartEpisode();
+    }
+  }
+
+  /** 命令来源（CallerType 是字符串枚举，可直接当字符串比较/打印）；未知时返回空串 */
+  private static callerTypeName(info: avSession.CommandInfo | undefined): string {
+    if (info === undefined || info.callerType === undefined) {
+      return '';
+    }
+    return info.callerType;
+  }
+
+  private static skipToNextEpisode(): void {
+    QueueEngine.autoAdvance().catch((error: Error) => {
+      Logger.warn(TAG, 'playNext failed: ' + error.message);
+    });
+  }
+
+  /** 播客没有「上一集」历史栈：重播当前单集（与上游 skipToPrevious 的 restart 语义一致） */
+  private static restartEpisode(): void {
+    PlayerManager.seek(0);
   }
 
   /** 快进/快退：系统给了跳过时长就用它，否则用用户在设置里的快进/快退秒数 */
