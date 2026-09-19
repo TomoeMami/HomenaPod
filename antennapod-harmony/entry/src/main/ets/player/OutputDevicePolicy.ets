@@ -66,6 +66,26 @@ export class OutputDevicePolicy {
   }
 
   /**
+   * 设备丢失事件到达时，这次丢失是否打断了「用户本意要播」的播放。
+   *
+   * 不能只看 `playIntent`：耳机断开时系统常常**先**补发一条 `INTERRUPT_HINT_PAUSE`，
+   * 那条路径已经调用过 `pause()`（`playIntent` 被清成 false）并把暂停原因记成 INTERRUPT；
+   * 等设备变更事件到达时 `playIntent` 已是 false。此时若直接放行「不处理」，
+   * 原因就停留在 INTERRUPT，随后焦点恢复的 `INTERRUPT_HINT_RESUME` 会照
+   * `prefAutoResumeAfterInterrupt`（默认开）把声音从扬声器放出来 —— 正是本策略要防的事。
+   *
+   * 因此把「暂停原因已经是 INTERRUPT」也算作被打断的播放。两条回调的到达顺序不保证
+   * （见 PlayerManager.handleAudioInterrupt 注释），两种顺序必须收敛到同一结果。
+   *
+   * `pausedByInterrupt` 为真而「本次丢失」确实已经不需要再动手暂停时，调用方仍应把原因改写成
+   * DEVICE（见 `shouldPauseOnDeviceLost` 的用法）：这样焦点恢复不会越权续播，
+   * 而设备重新接入仍能按重连偏好恢复。
+   */
+  static wasPlaybackInterrupted(playIntent: boolean, pausedByInterrupt: boolean): boolean {
+    return playIntent || pausedByInterrupt;
+  }
+
+  /**
    * 新输出设备接入时是否要恢复播放。
    *
    * 只有「本次暂停确实是设备丢失造成的」（`pausedByDeviceLoss`）才谈得上自动恢复 ——

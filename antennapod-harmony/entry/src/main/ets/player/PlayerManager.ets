@@ -490,7 +490,12 @@ export class PlayerManager {
 
     if (reason === DeviceChangeReasons.LOST) {
       const pauseEnabled: boolean = UserPreferences.isPauseOnHeadsetDisconnect();
-      if (!OutputDevicePolicy.shouldPauseOnDeviceLost(PlayerManager.playIntent, pauseEnabled)) {
+      // 顺序无关：设备事件与焦点中断谁先到，结论都必须一样。
+      // 焦点中断先到时 pause() 已把 playIntent 清成 false，只看它就会漏掉本次设备丢失，
+      // 让原因停在 INTERRUPT —— 之后焦点恢复会把声音从扬声器放出来。
+      const interrupted: boolean = OutputDevicePolicy.wasPlaybackInterrupted(
+        PlayerManager.playIntent, PlayerManager.pauseCause === PAUSE_CAUSE_INTERRUPT);
+      if (!OutputDevicePolicy.shouldPauseOnDeviceLost(interrupted, pauseEnabled)) {
         Logger.info(TAG, 'device lost: no pause (intent=' + PlayerManager.playIntent + ' enabled=' + pauseEnabled + ')');
         return;
       }

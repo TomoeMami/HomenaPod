@@ -290,6 +290,25 @@ assert.strictEqual(OutputDevicePolicy.isHeadset(DeviceClasses.OTHER), false);
 assert.strictEqual(OutputDevicePolicy.isBluetooth(DeviceClasses.BLUETOOTH), true);
 assert.strictEqual(OutputDevicePolicy.isBluetooth(DeviceClasses.WIRED), false);
 
+// ⑦ 到达顺序无关：耳机断开时「焦点中断」与「设备变更」两条回调谁先到不保证，结论必须一致。
+//    中断先到时 pause() 已把 playIntent 清成 false，只看 playIntent 就会漏判本次设备丢失。
+assert.strictEqual(OutputDevicePolicy.wasPlaybackInterrupted(true, false), true);   // 设备事件先到：本意仍在播
+assert.strictEqual(OutputDevicePolicy.wasPlaybackInterrupted(false, true), true);   // 中断先到：playIntent 已清，但原因=INTERRUPT
+assert.strictEqual(OutputDevicePolicy.wasPlaybackInterrupted(true, true), true);
+assert.strictEqual(OutputDevicePolicy.wasPlaybackInterrupted(false, false), false); // 用户自己暂停且无中断：不打扰
+//    两种顺序必须收敛到同一条暂停结论
+const lostOrderDeviceFirst = OutputDevicePolicy.shouldPauseOnDeviceLost(
+  OutputDevicePolicy.wasPlaybackInterrupted(true, false), true);
+const lostOrderInterruptFirst = OutputDevicePolicy.shouldPauseOnDeviceLost(
+  OutputDevicePolicy.wasPlaybackInterrupted(false, true), true);
+assert.strictEqual(lostOrderDeviceFirst, true);
+assert.strictEqual(lostOrderInterruptFirst, lostOrderDeviceFirst); // 修复前此式为 false
+//    设置里关掉开关时，两种顺序同样都不动手
+assert.strictEqual(OutputDevicePolicy.shouldPauseOnDeviceLost(
+  OutputDevicePolicy.wasPlaybackInterrupted(false, true), false), false);
+//    注：原因被钉成 DEVICE 后，随后的 INTERRUPT_HINT_RESUME 由 PlayerManager.handleAudioInterrupt
+//    的 `pauseCause === INTERRUPT` 前置条件拦住（非纯逻辑，故在上机取证覆盖）。
+
 // ---- 蓝牙耳机「下一首 / 上一首」按键重映射（MediaButtonPolicy）----
 const { MediaButtonPolicy, MediaButtonCommands, MediaButtonActions } =
   require('./player/MediaButtonPolicy.js');
