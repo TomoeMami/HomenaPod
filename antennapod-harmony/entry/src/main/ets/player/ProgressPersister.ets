@@ -11,7 +11,13 @@ export class ProgressPersister {
   private static lastPosition: number = 0;
   private static lastMediaId: number = 0;
 
-  static async save(force: boolean = false): Promise<void> {
+  /**
+   * @param force 跳过 5s 节流
+   * @param positionMs 指定要落盘的位置；负数（默认）表示读播放器当前位置。
+   *        「蓝牙断开回退」用它传**刚算出来的目标位置**：AVPlayer 的 seek 是异步完成的，
+   *        紧接着读 `getCurrentTime()` 很可能还是回退前的旧值。
+   */
+  static async save(force: boolean = false, positionMs: number = -1): Promise<void> {
     const playable: Playable | undefined = PlayerManager.getCurrent();
     if (playable === undefined || playable.id <= 0) {
       return;
@@ -20,7 +26,7 @@ export class ProgressPersister {
     if (!force && now - ProgressPersister.lastSavedAt < 5000) {
       return;
     }
-    const position: number = PlayerManager.getCurrentTime();
+    const position: number = positionMs >= 0 ? positionMs : PlayerManager.getCurrentTime();
     try {
       // Playable.id 对应 FeedMedia.id（由调用方保证）
       await EpisodeRepository.updatePosition(playable.id, position);

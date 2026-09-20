@@ -424,6 +424,37 @@ export class UserPreferences {
     UserPreferences.getPrefs().flush();
   }
 
+  /**
+   * 蓝牙设备断开并因此自动暂停后，把播放进度往回拉一段（见 OutputDevicePolicy /
+   * PlayerManager.pauseForDeviceLoss）；**移植版独有**，上游无对应偏好。
+   *
+   * 为什么需要：蓝牙掉线到系统把 `REASON_OLD_DEVICE_UNAVAILABLE` 交给应用之间有一段延迟，
+   * 这段延迟里音频可能已经改从扬声器外放或干脆被跳过 —— 回退几秒，用户重连后不会漏掉内容。
+   * 仅在「断开时暂停」真的生效（本意是在播）时才有意义，故设置页把它挂在那个开关之下。
+   */
+  static isRewindOnBluetoothDisconnect(): boolean {
+    return UserPreferences.getPrefs().getSync('prefRewindOnBluetoothDisconnect', true) as boolean;
+  }
+
+  static setRewindOnBluetoothDisconnect(value: boolean): void {
+    UserPreferences.getPrefs().putSync('prefRewindOnBluetoothDisconnect', value);
+    UserPreferences.getPrefs().flush();
+  }
+
+  /** 蓝牙断开后回退的秒数（默认 5 秒；仅接受 1–300，越界回落默认值） */
+  static getBluetoothDisconnectRewindSecs(): number {
+    const value: number = UserPreferences.getPrefs().getSync('prefBluetoothDisconnectRewindSecs', 5) as number;
+    if (!Number.isFinite(value) || value <= 0 || value > 300) {
+      return 5;
+    }
+    return Math.floor(value);
+  }
+
+  static setBluetoothDisconnectRewindSecs(value: number): void {
+    UserPreferences.getPrefs().putSync('prefBluetoothDisconnectRewindSecs', value);
+    UserPreferences.getPrefs().flush();
+  }
+
   static getSleepTimerMinutes(): number {
     return UserPreferences.getPrefs().getSync('prefSleepTimerMinutes', 15) as number;
   }

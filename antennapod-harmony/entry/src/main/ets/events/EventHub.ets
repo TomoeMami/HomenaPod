@@ -7,6 +7,12 @@ export class EventType {
   static readonly QUEUE: string = 'QueueEvent';
   static readonly PLAYER_STATUS: string = 'PlayerStatusEvent';
   static readonly PLAYBACK_POSITION: string = 'PlaybackPositionEvent';
+  /**
+   * 播放器被**程序**改动了位置（不是 timeUpdate 的自然推进）：目前只有「蓝牙断开后的补偿回退」。
+   * 载荷是**改动后的目标位置**（`PlaybackPositionData.time`）—— 暂停态下不再有 timeUpdate，
+   * 订阅方（PlaybackOrchestrator）据此把新位置立即落盘，否则冷启动会从回退前的位置继续。
+   */
+  static readonly PLAYBACK_SEEKED: string = 'PlaybackSeekedEvent';
   /** 换集（load 开始）：播控中心需要在 prepare 前就拿到新单集的元数据 */
   static readonly PLAYER_TRACK_CHANGED: string = 'PlayerTrackChangedEvent';
   static readonly PLAYBACK_SERVICE: string = 'PlaybackServiceEvent';

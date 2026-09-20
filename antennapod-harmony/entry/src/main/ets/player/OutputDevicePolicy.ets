@@ -13,8 +13,9 @@
 //   REASON_OLD_DEVICE_UNAVAILABLE（普通蓝牙设备断开 / 佩戴检测摘下一侧或双侧 / 有线设备拔出 /
 //   分布式设备下线）→ 「应用程序应考虑暂停音频播放」，且听书、音乐、视频场景的建议都是暂停。
 //
-// 本文件只回答两个问题：**该不该暂停**、**该不该恢复**；枚举归一化与播放器控制留在
-// PlayerManager（那里才知道 audio.DeviceType / audio.AudioStreamDeviceChangeReason 的真实取值）。
+// 本文件只回答三个问题：**该不该暂停**、**该不该恢复**、**这次下线的是不是蓝牙（要不要回退几秒）**；
+// 枚举归一化与播放器控制留在 PlayerManager（那里才知道 audio.DeviceType /
+// audio.AudioStreamDeviceChangeReason 的真实取值，也只有它能采样当前输出设备）。
 
 /** 输出设备类别（由 PlayerManager 从 audio.DeviceType 归一化而来，见那里的一一对应注释） */
 export class DeviceClasses {
@@ -49,6 +50,15 @@ export class OutputDevicePolicy {
   /** 是不是蓝牙设备（决定重连后读哪一条偏好） */
   static isBluetooth(cls: string): boolean {
     return cls === DeviceClasses.BLUETOOTH;
+  }
+
+  private static containsClass(classes: string[], cls: string): boolean {
+    for (const item of classes) {
+      if (item === cls) {
+        return true;
+      }
+    }
+    return false;
   }
 
   /**
@@ -110,5 +120,46 @@ export class OutputDevicePolicy {
       }
     }
     return false;
+  }
+
+  /**
+   * 本次设备丢失事件里，下线的**是不是蓝牙设备** —— 「蓝牙断开后回退几秒」的判定入口
+   * （移植版独有特性，上游没有；为什么只对蓝牙回退见 UserPreferences.isRewindOnBluetoothDisconnect）。
+   *
+   * 为什么不能直接读事件：`AudioStreamDeviceChangeInfo.devices` 是**变更之后**的设备列表
+   * （SDK 原文「Audio device descriptors after change」），蓝牙断开时那里只剩扬声器，
+   * 光看这一次事件答不出「下线的是什么设备」。所以调用方（PlayerManager）在**播放开始时**
+   * 先采样一份「本流当时的输出设备」，并记住每次变更之后的设备列表；
+   * 这里只回答一件事：上一次已知的设备里有蓝牙、而这次变更之后没有了 → 下线的就是蓝牙。
+   *
+   * 判定不出（历史为空、或变更后仍是蓝牙）时返回 false：宁可漏一次回退，
+   * 也不要在拔有线耳机 / 切扬声器时莫名其妙回退几秒。
+   */
+  static isBluetoothLoss(previousClasses: string[], currentClasses: string[]): boolean {
+    if (!OutputDevicePolicy.containsClass(previousClasses, DeviceClasses.BLUETOOTH)) {
+      return false;
+    }
+    return !OutputDevicePolicy.containsClass(currentClasses, DeviceClasses.BLUETOOTH);
+  }
+
+  /**
+   * 蓝牙断开造成的暂停之后要往回拉多少毫秒（0 = 不回退）。
+   *
+   * 三个条件缺一不可：确实下线的是蓝牙、用户开着这条偏好、秒数有效。
+   */
+  static rewindMillisOnBluetoothLoss(bluetoothLost: boolean, rewindEnabled: boolean, seconds: number): number {
+    if (!bluetoothLost || !rewindEnabled || !Number.isFinite(seconds) || seconds <= 0) {
+      return 0;
+    }
+    return Math.round(seconds * 1000);
+  }
+
+  /** 回退后的目标位置：不越过开头（回退量大于当前位置时落到 0） */
+  static rewindPositionMs(positionMs: number, backMs: number): number {
+    if (backMs <= 0) {
+      return positionMs;
+    }
+    const target: number = positionMs - backMs;
+    return target > 0 ? target : 0;
   }
 }

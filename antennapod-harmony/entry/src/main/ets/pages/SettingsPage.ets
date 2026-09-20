@@ -74,6 +74,10 @@ export struct SettingsPage {
   @State unpauseOnHeadsetReconnect: boolean = true;
   /** 蓝牙重新接入时恢复播放（上游 prefUnpauseOnBluetoothReconnect，默认关） */
   @State unpauseOnBluetoothReconnect: boolean = false;
+  /** 蓝牙断开后把进度往回拉几秒（移植版独有，默认开；见 UserPreferences.isRewindOnBluetoothDisconnect） */
+  @State rewindOnBluetoothDisconnect: boolean = true;
+  /** 蓝牙断开回退秒数（内存值，点「保存」才落盘） */
+  @State bluetoothRewindText: string = '5';
   /** 弹层当前选中的屏幕（SwipeScreen.*） */
   @State swipeScreen: string = SwipeScreen.QUEUE;
   /** 该屏幕是否启用滑动动作（上游 KEY_PREFIX_NO_ACTION） */
@@ -212,6 +216,26 @@ export struct SettingsPage {
                     this.unpauseOnBluetoothReconnect = isOn;
                     UserPreferences.setUnpauseOnBluetoothReconnect(isOn);
                   })
+                // 蓝牙断开后的补偿回退（移植版独有）：蓝牙掉线到系统通知应用之间有延迟，
+                // 暂停的同时把进度往回拉几秒，重连后不会漏掉这段内容。
+                this.rowDivider()
+                this.switchRow($r('sys.symbol.bluetooth'), $r('app.string.setting_rewind_on_bluetooth_disconnect'),
+                  this.rewindOnBluetoothDisconnect, (isOn: boolean) => {
+                    this.rewindOnBluetoothDisconnect = isOn;
+                    UserPreferences.setRewindOnBluetoothDisconnect(isOn);
+                  })
+                // 与「快退秒数」同款：输入框 + 保存动作（关掉回退后整行收起）
+                if (this.rewindOnBluetoothDisconnect) {
+                  this.rowDivider()
+                  this.numberRow($r('sys.symbol.timer'), $r('app.string.setting_rewind_on_bluetooth_disconnect_secs'),
+                    this.bluetoothRewindText, 72, (text: string) => {
+                      this.bluetoothRewindText = text;
+                    })
+                  this.rowDivider()
+                  this.footerAction($r('app.string.dialog_save'), () => {
+                    this.saveBluetoothRewind();
+                  })
+                }
               }
             }
             .width('100%')
@@ -940,6 +964,8 @@ export struct SettingsPage {
     this.pauseOnDisconnect = UserPreferences.isPauseOnHeadsetDisconnect();
     this.unpauseOnHeadsetReconnect = UserPreferences.isUnpauseOnHeadsetReconnect();
     this.unpauseOnBluetoothReconnect = UserPreferences.isUnpauseOnBluetoothReconnect();
+    this.rewindOnBluetoothDisconnect = UserPreferences.isRewindOnBluetoothDisconnect();
+    this.bluetoothRewindText = UserPreferences.getBluetoothDisconnectRewindSecs().toString();
   }
 
   /** 下载排序当前值文案（与订阅详情页的排序文案一致） */
@@ -998,6 +1024,16 @@ export struct SettingsPage {
       UserPreferences.setRewindSecs(Math.floor(rewind));
     }
     this.message = getContext(this).resourceManager.getStringSync($r('app.string.dialog_saved'));
+  }
+
+  /** 蓝牙断开回退秒数（边界与「快退秒数」一致：1–300 秒，越界不落盘） */
+  saveBluetoothRewind(): void {
+    const secs: number = Number(this.bluetoothRewindText.trim());
+    if (Number.isFinite(secs) && secs > 0 && secs <= 300) {
+      UserPreferences.setBluetoothDisconnectRewindSecs(Math.floor(secs));
+      this.bluetoothRewindText = Math.floor(secs).toString();
+      this.message = getContext(this).resourceManager.getStringSync($r('app.string.dialog_saved'));
+    }
   }
 
   /** 定时刷新：保存间隔并登记 WorkScheduler 任务（0 = 从不，等价上游 feed_refresh_never） */

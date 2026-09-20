@@ -1525,6 +1525,14 @@
       "value": "蓝牙重连时恢复播放"
     },
     {
+      "name": "setting_rewind_on_bluetooth_disconnect",
+      "value": "蓝牙断开后回退"
+    },
+    {
+      "name": "setting_rewind_on_bluetooth_disconnect_secs",
+      "value": "回退秒数"
+    },
+    {
       "name": "episode_detail_title",
       "value": "单集详情"
     },

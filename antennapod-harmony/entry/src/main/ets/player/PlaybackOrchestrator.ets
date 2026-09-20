@@ -36,6 +36,15 @@ export class PlaybackOrchestrator {
     EventHub.subscribe(EventType.PLAYBACK_POSITION, (data: object) => {
       ProgressPersister.save();
     });
+    // 程序改动位置（目前只有「蓝牙断开后的补偿回退」）：暂停态没有 timeUpdate，
+    // 5s 节流的周期保存不会再覆盖到新位置，这里按事件带回的目标位置强制落盘一次。
+    EventHub.subscribe(EventType.PLAYBACK_SEEKED, (data: object) => {
+      const record: Record<string, number> = data as Record<string, number>;
+      const time: number | undefined = record['time'];
+      ProgressPersister.save(true, time !== undefined ? time : -1).catch((error: Error) => {
+        Logger.warn(TAG, 'save after seek failed: ' + error.message);
+      });
+    });
     // 睡眠定时器渐弱音量：注入音量回调，页面不可见时也生效
     SleepTimer.setFadeHandler((volume: number) => {
       PlayerManager.setVolume(volume);

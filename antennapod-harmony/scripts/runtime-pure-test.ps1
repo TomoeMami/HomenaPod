@@ -309,6 +309,39 @@ assert.strictEqual(OutputDevicePolicy.shouldPauseOnDeviceLost(
 //    注：原因被钉成 DEVICE 后，随后的 INTERRUPT_HINT_RESUME 由 PlayerManager.handleAudioInterrupt
 //    的 `pauseCause === INTERRUPT` 前置条件拦住（非纯逻辑，故在上机取证覆盖）。
 
+// ---- 蓝牙断开后的补偿回退（OutputDevicePolicy，第 55 轮 / 移植版独有）----
+// ⑧ 是不是「蓝牙下线」：上一次已知设备里有蓝牙、而这次变更之后没有了
+assert.strictEqual(OutputDevicePolicy.isBluetoothLoss([DeviceClasses.BLUETOOTH], [DeviceClasses.BUILT_IN]), true);
+assert.strictEqual(OutputDevicePolicy.isBluetoothLoss(
+  [DeviceClasses.BUILT_IN, DeviceClasses.BLUETOOTH], [DeviceClasses.BUILT_IN]), true);
+//    拔有线耳机（上一次是有线）：不是蓝牙下线，不回退
+assert.strictEqual(OutputDevicePolicy.isBluetoothLoss([DeviceClasses.WIRED], [DeviceClasses.BUILT_IN]), false);
+assert.strictEqual(OutputDevicePolicy.isBluetoothLoss([DeviceClasses.WIRED], [DeviceClasses.BUILT_IN, DeviceClasses.OTHER]), false);
+//    历史为空（还没采样过输出设备）：判定不出来就不回退（宁可漏一次，也不要误回退）
+assert.strictEqual(OutputDevicePolicy.isBluetoothLoss([], [DeviceClasses.BUILT_IN]), false);
+//    变更后仍在蓝牙上（同时挂着两台蓝牙、只掉了一台 / 戴着耳机却切到耳机上）：不打扰
+assert.strictEqual(OutputDevicePolicy.isBluetoothLoss([DeviceClasses.BLUETOOTH], [DeviceClasses.BLUETOOTH]), false);
+assert.strictEqual(OutputDevicePolicy.isBluetoothLoss(
+  [DeviceClasses.BLUETOOTH], [DeviceClasses.BLUETOOTH, DeviceClasses.BUILT_IN]), false);
+
+// ⑨ 回退量：蓝牙下线 + 用户开着开关 + 秒数有效，三者缺一不可（默认 5 秒）
+assert.strictEqual(OutputDevicePolicy.rewindMillisOnBluetoothLoss(true, true, 5), 5000);
+assert.strictEqual(OutputDevicePolicy.rewindMillisOnBluetoothLoss(true, true, 30), 30000);
+assert.strictEqual(OutputDevicePolicy.rewindMillisOnBluetoothLoss(true, true, 2.5), 2500);
+assert.strictEqual(OutputDevicePolicy.rewindMillisOnBluetoothLoss(true, false, 5), 0);        // 设置里关掉
+assert.strictEqual(OutputDevicePolicy.rewindMillisOnBluetoothLoss(false, true, 5), 0);        // 不是蓝牙断开
+assert.strictEqual(OutputDevicePolicy.rewindMillisOnBluetoothLoss(false, false, 5), 0);
+assert.strictEqual(OutputDevicePolicy.rewindMillisOnBluetoothLoss(true, true, 0), 0);         // 秒数非法
+assert.strictEqual(OutputDevicePolicy.rewindMillisOnBluetoothLoss(true, true, -5), 0);
+assert.strictEqual(OutputDevicePolicy.rewindMillisOnBluetoothLoss(true, true, Number.NaN), 0);
+
+// ⑩ 回退后的目标位置：不越过开头；不回退时位置原样返回
+assert.strictEqual(OutputDevicePolicy.rewindPositionMs(120000, 5000), 115000);
+assert.strictEqual(OutputDevicePolicy.rewindPositionMs(3000, 5000), 0);      // 开头不足 5 秒 → 落到 0
+assert.strictEqual(OutputDevicePolicy.rewindPositionMs(5000, 5000), 0);
+assert.strictEqual(OutputDevicePolicy.rewindPositionMs(0, 5000), 0);
+assert.strictEqual(OutputDevicePolicy.rewindPositionMs(120000, 0), 120000);
+
 // ---- 蓝牙耳机「下一首 / 上一首」按键重映射（MediaButtonPolicy）----
 const { MediaButtonPolicy, MediaButtonCommands, MediaButtonActions } =
   require('./player/MediaButtonPolicy.js');

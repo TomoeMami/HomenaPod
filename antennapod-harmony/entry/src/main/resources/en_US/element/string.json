@@ -1525,6 +1525,14 @@
       "value": "Resume when Bluetooth reconnects"
     },
     {
+      "name": "setting_rewind_on_bluetooth_disconnect",
+      "value": "Rewind after Bluetooth disconnect"
+    },
+    {
+      "name": "setting_rewind_on_bluetooth_disconnect_secs",
+      "value": "Rewind seconds"
+    },
+    {
       "name": "episode_detail_title",
       "value": "Episode details"
     },

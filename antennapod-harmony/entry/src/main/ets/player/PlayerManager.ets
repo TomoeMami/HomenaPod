@@ -56,6 +56,14 @@ export class PlayerManager {
   private static playIntent: boolean = false;
   /** 最近一次系统侧暂停的原因（PAUSE_CAUSE_*） */
   private static pauseCause: string = PAUSE_CAUSE_NONE;
+  /**
+   * 最近一次已知的「本音频流输出设备」类别（DeviceClasses.*）：
+   * 播放开始时用 `getPreferredOutputDeviceForRendererInfoSync` 采样一份，之后每次设备变更事件后更新。
+   *
+   * 用途只有一个：设备丢失事件带回的 `devices` 是**变更之后**的列表（蓝牙断开后只剩扬声器），
+   * 靠它才答得出「这次下线的到底是不是蓝牙」—— 见 OutputDevicePolicy.isBluetoothLoss。
+   */
+  private static activeOutputClasses: string[] = [];
   /** 本地文件播放时保持打开的 fd（AVPlayer 走 fdSrc，播放期间不能关闭） */
   private static localFile: fs.File | undefined = undefined;
 
@@ -195,10 +203,46 @@ export class PlayerManager {
       // 主动播放：意图置真，并清掉上一次系统侧暂停的原因（用户接管了播放）
       PlayerManager.playIntent = true;
       PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
+      // 记下「这次开播时用的是哪类输出设备」：以后设备丢失事件才知道下线的是什么（见 activeOutputClasses）
+      PlayerManager.refreshOutputClasses();
       await player.play();
       // 长时任务必须在真正开始播放后启动：否则后台/锁屏会被系统冻结
       PlayerManager.startBackgroundTask();
     }
+  }
+
+  /**
+   * 采样「本音频流此刻用的输出设备」，覆盖 {@link activeOutputClasses}。
+   *
+   * 用 `AudioRoutingManager.getPreferredOutputDeviceForRendererInfoSync`（API 10+）：
+   * 它按 `AudioRendererInfo.usage` 取**本场景**（媒体播放）的输出设备，是流/场景级查询；
+   * 不用同名的全局 `deviceChange` 事件 —— 官方 FAQ 明确它监听的是全局设备连接状态、
+   * 不与音频流绑定，不能作为自动暂停之类判断的依据。
+   *
+   * 查询失败时**保留上一次的记录**（宁可漏一次回退，也不要在拔有线耳机时误回退）。
+   */
+  private static refreshOutputClasses(): void {
+    try {
+      const devices: audio.AudioDeviceDescriptors = audio.getAudioManager()
+        .getRoutingManager().getPreferredOutputDeviceForRendererInfoSync(PlayerManager.rendererInfo());
+      const classes: string[] = PlayerManager.toDeviceClasses(devices);
+      if (classes.length > 0) {
+        PlayerManager.activeOutputClasses = classes;
+        Logger.info(TAG, 'output device sampled: [' + classes.join(',') + ']');
+      }
+    } catch (error) {
+      Logger.warn(TAG, 'query preferred output device failed: ' + (error as Error).message);
+    }
+  }
+
+  /** 查询用的渲染信息：优先用播放器自己的，未设置过则按默认的媒体播放场景（STREAM_USAGE_MUSIC） */
+  private static rendererInfo(): audio.AudioRendererInfo {
+    const player: media.AVPlayer | undefined = PlayerManager.player;
+    const info: audio.AudioRendererInfo | undefined = player !== undefined ? player.audioRendererInfo : undefined;
+    if (info !== undefined) {
+      return info;
+    }
+    return { usage: audio.StreamUsage.STREAM_USAGE_MUSIC, rendererFlags: 0 };
   }
 
   /** 启动 AUDIO_PLAYBACK 长时任务（幂等；失败不阻断播放） */
@@ -260,8 +304,11 @@ export class PlayerManager {
    * `stateChange` 也不会再来），所以这里额外把应用侧状态与播控中心显式收敛成 PAUSED，
    * 避免播放页 / 通知卡片停在「播放中」；同时保留 `pauseCause = DEVICE`，
    * 让设备重新接入时能按偏好恢复。
+   *
+   * @param rewindMs 蓝牙断开的补偿回退量（0 = 不回退）：蓝牙掉线到本事件到达之间有一段延迟，
+   *                 这段延迟里音频可能已经改从扬声器外放或干脆被跳过，回退几秒让用户不漏内容。
    */
-  private static async pauseForDeviceLoss(): Promise<void> {
+  private static async pauseForDeviceLoss(rewindMs: number): Promise<void> {
     PlayerManager.playIntent = false;
     PlayerManager.pausedAt = Date.now();
     const player: media.AVPlayer | undefined = PlayerManager.player;
@@ -272,11 +319,34 @@ export class PlayerManager {
         Logger.warn(TAG, 'pause on device loss failed: ' + (error as Error).message);
       }
     }
+    // 回退必须发生在暂停**之后**：蓝牙断开后音频多半已经改从扬声器外放，
+    // 先 seek 再暂停等于把这几秒重新放出来一遍（用户听到的是「重复的一段」而不是静音）。
+    if (rewindMs > 0) {
+      PlayerManager.rewindAfterDeviceLoss(rewindMs);
+    }
     if (PlayerManager.status === PlayerStatus.PLAYING || PlayerManager.status === PlayerStatus.PREPARED) {
       PlayerManager.status = PlayerStatus.PAUSED;
       const statusData: PlayerStatusData = { status: PlayerManager.status };
       EventHub.publish(EventType.PLAYER_STATUS, statusData);
     }
+  }
+
+  /**
+   * 蓝牙断开补偿回退：把进度往回调一段。
+   *
+   * 位置以「暂停那一刻」为基准：延迟期间真的播掉的那些内容正是用户没听到（或只从扬声器
+   * 听到一句）的部分，回退之后重连继续播不会漏内容。
+   */
+  private static rewindAfterDeviceLoss(rewindMs: number): void {
+    const position: number = PlayerManager.getCurrentTime();
+    const target: number = OutputDevicePolicy.rewindPositionMs(position, rewindMs);
+    Logger.info(TAG, 'bluetooth lost: rewind ' + rewindMs + 'ms from ' + position + ' -> ' + target);
+    PlayerManager.seek(target);
+    // 暂停后不再有 timeUpdate，5s 节流的周期保存不会再把新位置写库：
+    // 不带位置地补一次强制落盘会读到 seek 未生效前的旧值，所以把目标位置一并广播出去，
+    // 由 PlaybackOrchestrator 转交 ProgressPersister（PlayerManager 不直接依赖它，避免循环依赖）。
+    const positionData: PlaybackPositionData = { time: target, duration: PlayerManager.getDuration() };
+    EventHub.publish(EventType.PLAYBACK_SEEKED, positionData);
   }
 
   static seek(timeMs: number): void {
@@ -484,7 +554,14 @@ export class PlayerManager {
     }
     const reason: string = PlayerManager.toDeviceChangeReason(info.changeReason);
     const classes: string[] = PlayerManager.toDeviceClasses(info.devices);
+    // `devices` 是**变更之后**的设备列表：先取走变更**之前**的那份记录，
+    // 再把它更新成本次变更后的结果（下一次设备丢失事件判「下线的是不是蓝牙」就靠它）
+    const previous: string[] = PlayerManager.activeOutputClasses;
+    if (classes.length > 0) {
+      PlayerManager.activeOutputClasses = classes;
+    }
     Logger.info(TAG, 'outputDeviceChange reason=' + reason + ' devices=[' + classes.join(',') + ']'
+      + ' previous=[' + previous.join(',') + ']'
       + ' status=' + PlayerManager.status + ' intent=' + PlayerManager.playIntent
       + ' cause=' + PlayerManager.pauseCause);
 
@@ -499,8 +576,13 @@ export class PlayerManager {
         Logger.info(TAG, 'device lost: no pause (intent=' + PlayerManager.playIntent + ' enabled=' + pauseEnabled + ')');
         return;
       }
+      // 蓝牙断开补偿回退（移植版独有）：只有确认下线的是蓝牙才回退，拔有线耳机不动（见 OutputDevicePolicy）
+      const bluetoothLost: boolean = OutputDevicePolicy.isBluetoothLoss(previous, classes);
+      const rewindMs: number = OutputDevicePolicy.rewindMillisOnBluetoothLoss(bluetoothLost,
+        UserPreferences.isRewindOnBluetoothDisconnect(), UserPreferences.getBluetoothDisconnectRewindSecs());
+      Logger.info(TAG, 'device lost: bluetoothLost=' + bluetoothLost + ' rewind=' + rewindMs + 'ms');
       PlayerManager.pauseCause = PAUSE_CAUSE_DEVICE;
-      PlayerManager.pauseForDeviceLoss().catch((error: Error) => {
+      PlayerManager.pauseForDeviceLoss(rewindMs).catch((error: Error) => {
         Logger.warn(TAG, 'pauseForDeviceLoss failed: ' + error.message);
       });
       return;
