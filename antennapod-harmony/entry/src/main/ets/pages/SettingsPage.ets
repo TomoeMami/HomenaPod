@@ -359,7 +359,7 @@ export struct SettingsPage {
         .padding({ left: DesignTokens.PAGE_MARGIN, right: DesignTokens.PAGE_MARGIN, bottom: DesignTokens.SPACE_XXL })
         }
         .width('100%')
-        .height('100%')
+        .layoutWeight(1)
         .backgroundColor($r('app.color.page_bg'))
         .align(Alignment.Top)
         .scrollBar(BarState.Off)
