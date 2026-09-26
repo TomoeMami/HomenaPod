@@ -35,7 +35,7 @@ $models = @('Enums','Feed','FeedItem','FeedMedia','FeedPreferences','Chapter','P
 $utils = @('DurationUtils','DateUtils','MimeTypeUtils','HtmlCleaner','ShownotesText','SortUtils','InboxBaseline')
 $parser = @('XmlReader','FeedParser')
 # player 下只有「纯逻辑」文件能进这里：不 import 任何 @kit.*（OutputDevicePolicy 便是如此）
-$player = @('OutputDevicePolicy','MediaButtonPolicy')
+$player = @('OutputDevicePolicy','MediaButtonPolicy','PlaybackSpeedPolicy')
 foreach ($m in $models) { Copy-Item (Join-Path $src "model/$m.ets") (Join-Path $work "model/$m.ts") }
 foreach ($u in $utils) { Copy-Item (Join-Path $src "utils/$u.ets") (Join-Path $work "utils/$u.ts") }
 foreach ($p in $parser) { Copy-Item (Join-Path $src "parser/$p.ets") (Join-Path $work "parser/$p.ts") }
@@ -378,6 +378,38 @@ assert.strictEqual(MediaButtonPolicy.isNearEnd(0, 10000), true);
 assert.strictEqual(MediaButtonPolicy.isNearEnd(0, 10001), false);
 assert.strictEqual(MediaButtonPolicy.isNearEnd(5000, 5000), true);
 assert.strictEqual(MediaButtonPolicy.isNearEnd(0, 0), false);
+
+// ---- 系统播控下发的倍速校验（PlaybackSpeedPolicy，第 56 轮 / 移植版独有）----
+// 回归背景：`toPlaybackSpeed()` 用 `<=` 分档，任何 ≤0.5 的输入都会落到 0.5x（用户侧=「自己变成慢速」），
+// 所以系统给的值必须先过这道闸：非有限数值、或不在应用档位区间内的一律不接受。
+const { PlaybackSpeedPolicy } = require('./player/PlaybackSpeedPolicy.js');
+const SPEED_MIN = 0.5;
+const SPEED_MAX = 2.0;
+// 正常档位：全部接受
+assert.strictEqual(PlaybackSpeedPolicy.isAcceptable(0.5, SPEED_MIN, SPEED_MAX), true);
+assert.strictEqual(PlaybackSpeedPolicy.isAcceptable(0.75, SPEED_MIN, SPEED_MAX), true);
+assert.strictEqual(PlaybackSpeedPolicy.isAcceptable(1.0, SPEED_MIN, SPEED_MAX), true);
+assert.strictEqual(PlaybackSpeedPolicy.isAcceptable(1.25, SPEED_MIN, SPEED_MAX), true);
+assert.strictEqual(PlaybackSpeedPolicy.isAcceptable(1.5, SPEED_MIN, SPEED_MAX), true);
+assert.strictEqual(PlaybackSpeedPolicy.isAcceptable(2.0, SPEED_MIN, SPEED_MAX), true);
+// 会把播放钉在 0.5x 的输入：拒绝（这就是「下载的单集自己变慢」的一种可能来源）
+assert.strictEqual(PlaybackSpeedPolicy.isAcceptable(0, SPEED_MIN, SPEED_MAX), false);
+assert.strictEqual(PlaybackSpeedPolicy.isAcceptable(-1, SPEED_MIN, SPEED_MAX), false);
+assert.strictEqual(PlaybackSpeedPolicy.isAcceptable(0.25, SPEED_MIN, SPEED_MAX), false);
+// 参数缺失 / NaN / 无穷：拒绝
+assert.strictEqual(PlaybackSpeedPolicy.isAcceptable(undefined, SPEED_MIN, SPEED_MAX), false);
+assert.strictEqual(PlaybackSpeedPolicy.isAcceptable(Number.NaN, SPEED_MIN, SPEED_MAX), false);
+assert.strictEqual(PlaybackSpeedPolicy.isAcceptable(Number.POSITIVE_INFINITY, SPEED_MIN, SPEED_MAX), false);
+// 超过应用上限（AVPlayer 3.0x 需 API 13，本工程未纳入）：拒绝
+assert.strictEqual(PlaybackSpeedPolicy.isAcceptable(3.0, SPEED_MIN, SPEED_MAX), false);
+// 区间参数本身非法时也不放行
+assert.strictEqual(PlaybackSpeedPolicy.isAcceptable(1.0, Number.NaN, SPEED_MAX), false);
+assert.strictEqual(PlaybackSpeedPolicy.isAcceptable(1.0, SPEED_MAX, SPEED_MIN), false);
+// 拒绝原因（日志归因）
+assert.strictEqual(PlaybackSpeedPolicy.rejectReason(1.5, SPEED_MIN, SPEED_MAX), '');
+assert.strictEqual(PlaybackSpeedPolicy.rejectReason(0, SPEED_MIN, SPEED_MAX), 'below-min(0.5)');
+assert.strictEqual(PlaybackSpeedPolicy.rejectReason(3, SPEED_MIN, SPEED_MAX), 'above-max(2)');
+assert.strictEqual(PlaybackSpeedPolicy.rejectReason(Number.NaN, SPEED_MIN, SPEED_MAX), 'not-a-finite-number');
 
 // ---- 节目详情（shownotes）：去标签保留换行 + 时间码识别 ----
 // 换行：旧的 PlayerPage.plainText 把标签换成空格后 `\s+` → ' '，<br>/<p>/真实换行全被吃掉

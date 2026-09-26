@@ -36,7 +36,7 @@ struct PlayerSmokePage {
           })
         Button($r('app.string.player_speed_15'))
           .onClick(() => {
-            PlayerManager.setSpeed(1.5);
+            PlayerManager.setSpeed(1.5, 'smoke');
           })
       }
       Button($r('app.string.player_smoke_load_feed'))

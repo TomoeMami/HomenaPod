@@ -686,22 +686,14 @@ struct EpisodesPage {
     if (item.media === undefined) {
       return;
     }
-    const playable: Playable = new Playable(
-      item.media.id,
-      item.id,
-      item.title,
-      item.feedTitle,
-      item.media.downloadUrl,
-      item.media.fileUrl,
-      item.media.duration,
-      item.media.position,
-      item.media.getMediaType(),
-      1.0,
-      0,
-      0,
-      0,
-      item.imageUrl !== '' ? item.imageUrl : item.feedImage
-    );
+    // 与其它入口统一走 QueueEngine.toPlayable：它会读每订阅设置（倍速 / 跳片头 / 跳片尾 / 音量适配）。
+    // 旧实现把 speed 写死 1.0、其余写死 0，于是「列表行内按钮播放已下载单集」会丢掉订阅级倍速、
+    // 落到全局默认倍速 —— 用户侧的表现是「同一集，下载的比在线的慢」（列表里未下载的单集按钮是
+    // 下载而不是播放，想在线听只能进详情页，那条路读得到订阅级倍速，所以只有下载的会慢）。
+    const playable: Playable | undefined = await QueueEngine.toPlayable(item);
+    if (playable === undefined) {
+      return;
+    }
     await QueueEngine.ensureQueued(item);
     await PlayerManager.load(playable, item.media.position, true);
     router.pushUrl({ url: 'pages/PlayerPage' });

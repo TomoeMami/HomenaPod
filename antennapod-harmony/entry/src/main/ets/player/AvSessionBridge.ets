@@ -18,6 +18,7 @@ import { FeedItem } from '../model/FeedItem';
 import { PlayerManager, PlayerStatus } from './PlayerManager';
 import { QueueEngine } from './QueueEngine';
 import { MediaButtonActions, MediaButtonCommands, MediaButtonPolicy } from './MediaButtonPolicy';
+import { PlaybackSpeedPolicy } from './PlaybackSpeedPolicy';
 import { EpisodeRepository } from '../db/repositories/EpisodeRepository';
 import { FavoritesRepository } from '../db/repositories/FavoritesRepository';
 import { UserPreferences } from '../prefs/UserPreferences';
@@ -123,7 +124,7 @@ export class AvSessionBridge {
       PlayerManager.seek(time);
     });
     session.on('setSpeed', (speed: number): void => {
-      PlayerManager.setSpeed(speed);
+      AvSessionBridge.applySystemSpeed(speed);
     });
     session.on('setLoopMode', (mode: avSession.LoopMode): void => {
       AvSessionBridge.applyLoopMode(mode);
@@ -212,6 +213,26 @@ export class AvSessionBridge {
     const prefMs: number = (forward ? UserPreferences.getFastForwardSecs() : UserPreferences.getRewindSecs()) * 1000;
     const delta: number = time !== undefined && time > 0 ? time : prefMs;
     PlayerManager.seekBy(forward ? delta : -delta);
+  }
+
+  /**
+   * 系统播控下发的倍速（官方：`setSpeed` 指令携带 number 参数）。
+   *
+   * **必须先校验再下发**：`PlayerManager.toPlaybackSpeed()` 用 `<=` 分档，任何 ≤0.5 的输入
+   * （0、负数、参数缺失变 undefined、或系统按 `media.PlaybackSpeed` 枚举值下发时的 0=0.75x）
+   * 都会静默落到 **0.5x** —— 用户侧看到的就是「自己变成慢速播放」。越界一律忽略并留日志，
+   * 归一化交给 `setSpeed` 的就近取档。
+   */
+  private static applySystemSpeed(speed: number): void {
+    const min: number = PlayerManager.SPEED_PRESETS[0];
+    const max: number = PlayerManager.SPEED_PRESETS[PlayerManager.SPEED_PRESETS.length - 1];
+    if (!PlaybackSpeedPolicy.isAcceptable(speed, min, max)) {
+      Logger.warn(TAG, 'avsession setSpeed ignored: ' + speed
+        + ' (' + PlaybackSpeedPolicy.rejectReason(speed, min, max) + ')');
+      return;
+    }
+    Logger.info(TAG, 'avsession setSpeed ' + speed);
+    PlayerManager.setSpeed(speed, 'avsession');
   }
 
   private static applyLoopMode(mode: avSession.LoopMode): void {

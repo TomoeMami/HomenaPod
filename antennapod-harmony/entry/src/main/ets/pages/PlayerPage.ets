@@ -42,6 +42,7 @@ struct PlayerPage {
   @State chapters: Chapter[] = [];
   @State sleepRemainingText: string = '';
   @State speed: number = 1.0;
+  @State showSpeedSheet: boolean = false;
   @State repeatMode: number = 0;
   @State showSleepSheet: boolean = false;
   @State showChaptersSheet: boolean = false;
@@ -204,9 +205,7 @@ struct PlayerPage {
 
             // 播放控制行：倍速 · 快退 · 播放 · 快进 · 下一集（上游顺序）
             Row() {
-              this.controlButton($r('sys.symbol.fast'), this.speed.toFixed(2), () => {
-                this.cycleSpeed();
-              })
+              this.speedButton()
               this.controlButton($r('sys.symbol.arrow_left'), UserPreferences.getRewindSecs().toString(), () => {
                 PlayerManager.seekBy(-UserPreferences.getRewindSecs() * 1000);
               })
@@ -276,6 +275,9 @@ struct PlayerPage {
       .width('100%')
       .height('100%')
 
+      if (this.showSpeedSheet) {
+        this.speedSheet()
+      }
       if (this.showSleepSheet) {
         this.sleepSheet()
       }
@@ -291,6 +293,37 @@ struct PlayerPage {
     .backgroundColor($r('app.color.page_bg'))
     // 沉浸式状态栏：把页面背景的绘制区延伸到状态栏下（不改布局，内容仍避开状态栏）
     .expandSafeArea([SafeAreaType.SYSTEM], [SafeAreaEdge.TOP])
+  }
+
+  /**
+   * 倍速按钮。
+   *
+   * 数值标签必须在 builder **内部**读 @State：ArkUI 的 `@Builder` 按值传参时不会随状态重绘，
+   * 旧写法 `controlButton(..., this.speed.toFixed(2), ...)` 会出现「原生已经改到 1.50x、
+   * 界面还停在 1.00」的假象（用户会以为倍速自己变了；第 40 轮设置页「排序方式」踩过同一个坑）。
+   */
+  @Builder
+  speedButton() {
+    Column() {
+      Stack() {
+        SymbolGlyph($r('sys.symbol.fast'))
+          .fontSize(DesignTokens.ICON_XL)
+          .fontColor([$r('app.color.text_primary')])
+      }
+      .width(48)
+      .height(48)
+      .alignContent(Alignment.Center)
+      .onClick(() => {
+        this.openSpeedSheet();
+      })
+
+      Text(this.speed.toFixed(2))
+        .fontSize(DesignTokens.FONT_FOOTNOTE)
+        .fontColor($r('app.color.text_secondary'))
+        .maxLines(1)
+        .height(16)
+    }
+    .alignItems(HorizontalAlign.Center)
   }
 
   /** 播放控制行的单个按钮：48vp 图标按钮 + 下方 12fp 数值标签 */
@@ -462,6 +495,65 @@ struct PlayerPage {
         .margin({ bottom: DesignTokens.SPACE_L })
         .onClick(() => {
           this.showNotesSheet = false;
+        })
+    }
+    .width('100%')
+    .padding({ left: DesignTokens.PAGE_MARGIN, right: DesignTokens.PAGE_MARGIN })
+    .backgroundColor($r('app.color.surface'))
+    .borderRadius({ topLeft: DesignTokens.RADIUS_SHEET, topRight: DesignTokens.RADIUS_SHEET })
+  }
+
+  /**
+   * 倍速弹层（对照上游 VariableSpeedDialog）：显式选择一档，不再「点一次循环一档」。
+   *
+   * 旧交互的隐患：倍速按钮就在快退左边，误触一次就把当前倍速和**全局默认倍速**一起改掉，
+   * 而且档位列表是循环的（2.00x 再点一次绕回 0.50x）——「过一阵自己变慢」有它一份。
+   */
+  @Builder
+  speedSheet() {
+    Column({ space: DesignTokens.SPACE_XS }) {
+      Text($r('app.string.setting_playback_speed'))
+        .fontSize(DesignTokens.FONT_BODY)
+        .fontWeight(FontWeight.Medium)
+        .fontColor($r('app.color.text_primary'))
+        .width('100%')
+        .padding({ top: DesignTokens.SPACE_L, bottom: DesignTokens.SPACE_S })
+
+      ForEach(PlayerManager.SPEED_PRESETS, (preset: number) => {
+        Row({ space: DesignTokens.SPACE_S }) {
+          SymbolGlyph(this.isCurrentSpeed(preset)
+            ? $r('sys.symbol.checkmark_circle_fill') : $r('sys.symbol.circle'))
+            .fontSize(DesignTokens.ICON_L)
+            .fontColor([this.isCurrentSpeed(preset)
+              ? $r('app.color.primary') : $r('app.color.text_tertiary')])
+          Text(preset.toFixed(2) + 'x')
+            .fontSize(DesignTokens.FONT_SUBTITLE)
+            .fontColor($r('app.color.text_primary'))
+            .layoutWeight(1)
+        }
+        .width('100%')
+        .constraintSize({ minHeight: 48 })
+        .onClick(() => {
+          this.applySpeed(preset);
+        })
+      }, (preset: number) => 'speed-' + preset)
+
+      Text(getContext(this).resourceManager.getStringSync($r('app.string.setting_speed'))
+        + ' ' + UserPreferences.getDefaultPlaybackSpeed().toFixed(2) + 'x')
+        .fontSize(DesignTokens.FONT_FOOTNOTE)
+        .fontColor($r('app.color.text_secondary'))
+        .width('100%')
+        .padding({ top: DesignTokens.SPACE_S, bottom: DesignTokens.SPACE_S })
+
+      Button($r('app.string.dialog_cancel'))
+        .width('100%')
+        .height(DesignTokens.HEIGHT_BUTTON)
+        .fontSize(DesignTokens.FONT_PARAGRAPH)
+        .backgroundColor($r('app.color.surface_secondary'))
+        .fontColor($r('app.color.text_primary'))
+        .margin({ bottom: DesignTokens.SPACE_L })
+        .onClick(() => {
+          this.showSpeedSheet = false;
         })
     }
     .width('100%')
@@ -837,17 +929,26 @@ struct PlayerPage {
     return text === '' ? '0:00' : text;
   }
 
-  cycleSpeed(): void {
-    const presets: number[] = PlayerManager.SPEED_PRESETS;
-    let index: number = presets.indexOf(this.speed);
-    if (index < 0) {
-      index = presets.indexOf(1.0);
-    }
-    const next: number = presets[(index + 1) % presets.length];
-    PlayerManager.setSpeed(next);
-    // 与上游一致：播放页改的倍速同时作为后续播放的默认倍速
-    UserPreferences.setDefaultPlaybackSpeed(next);
-    this.speed = next;
+  /** 打开倍速弹层：先同步一次真实生效值，避免弹层里勾选项与播放器不一致 */
+  openSpeedSheet(): void {
+    this.speed = PlayerManager.getSpeed();
+    this.showSpeedSheet = true;
+  }
+
+  /**
+   * 选择倍速：立即作用于当前播放，并写入全局默认倍速（与上游 VariableSpeedDialog 一致，
+   * 「播放页选过就记住」；改默认值的显式入口仍在设置页，弹层里会显示当前默认值）。
+   */
+  applySpeed(speed: number): void {
+    PlayerManager.setSpeed(speed, 'player-page');
+    UserPreferences.setDefaultPlaybackSpeed(speed);
+    this.speed = speed;
+    this.showSpeedSheet = false;
+  }
+
+  /** 是否当前档位（都是同一份 SPEED_PRESETS 里的值，浮点比较留一点余量） */
+  isCurrentSpeed(preset: number): boolean {
+    return Math.abs(this.speed - preset) < 0.001;
   }
 
   cycleRepeat(): void {

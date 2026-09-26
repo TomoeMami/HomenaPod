@@ -44,6 +44,18 @@ export class PlayerManager {
   private static current: Playable | undefined = undefined;
   private static status: string = PlayerStatus.IDLE;
   private static speed: number = 1.0;
+  /** 最近一次「请求」的倍速（feed 级 / 全局默认 / 用户点选 / 系统播控下发的原始倍率） */
+  private static intendedSpeed: number = 1.0;
+  /**
+   * `speedDone` 上报的**实际生效**档位（media.PlaybackSpeed 枚举值，-1 = 尚未收到）。
+   *
+   * 这是唯一可信的「倍速到底生效没有」的依据：`player.setSpeed()` 是异步的，
+   * 且本地 fd 路径上若调用时机过早会被丢掉 —— 不校验的话，界面显示 1.50x / 实际播 1.00x
+   * 这种「下载的单集自己变慢」就完全看不见（第 56 轮加）。
+   */
+  private static effectiveSpeedMode: number = -1;
+  /** 本次请求是否已经补发过一次，避免上报值一直对不上时无限重发 */
+  private static speedRetried: boolean = false;
   private static volume: number = 1.0;
   private static pausedAt: number = 0;
   private static skipEndingFired: boolean = false;
@@ -92,6 +104,9 @@ export class PlayerManager {
     (info: audio.AudioStreamDeviceChangeInfo): void => {
       PlayerManager.handleOutputDeviceChange(info);
     };
+  private static boundSpeedDone: (mode: number) => void = (mode: number): void => {
+    PlayerManager.handleSpeedDone(mode);
+  };
 
   static async load(playable: Playable, startPosition: number, autoplay: boolean): Promise<void> {
     await PlayerManager.release();
@@ -101,6 +116,9 @@ export class PlayerManager {
     PlayerManager.pausedAt = 0;
     PlayerManager.playIntent = false;
     PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
+    // 换集：上一集的倍速校验结果作废
+    PlayerManager.effectiveSpeedMode = -1;
+    PlayerManager.speedRetried = false;
     // 通知播控中心换集（AVSession 元数据必须在 prepare 前就更新，否则通知栏卡片还是上一集）
     const trackData: PlayerTrackData = { assetId: playable.id };
     EventHub.publish(EventType.PLAYER_TRACK_CHANGED, trackData);
@@ -109,6 +127,8 @@ export class PlayerManager {
     player.on('timeUpdate', PlayerManager.boundTimeUpdate);
     player.on('error', PlayerManager.boundError);
     player.on('audioInterrupt', PlayerManager.boundInterrupt);
+    // 倍速是否真的生效，只能看 speedDone（它回传实际生效档位）
+    player.on('speedDone', PlayerManager.boundSpeedDone);
     // 输出设备变更（耳机拔出 / 蓝牙断开 / 重新接入）：官方指引要求
     // REASON_OLD_DEVICE_UNAVAILABLE 时由应用自己暂停 —— 见 OutputDevicePolicy 注释
     player.on('audioOutputDeviceChangeWithInfo', PlayerManager.boundOutputDeviceChange);
@@ -151,10 +171,10 @@ export class PlayerManager {
       PlayerManager.seek(target);
     }
     if (playable.speed > 0 && playable.speed !== 1.0) {
-      PlayerManager.setSpeed(playable.speed);
+      PlayerManager.setSpeed(playable.speed, 'load:feed');
     } else {
       // 无 Feed 级倍速时用用户默认倍速：否则播放页设过的倍速会在下次 prepare（如单集循环）被打回 1.0
-      PlayerManager.setSpeed(UserPreferences.getDefaultPlaybackSpeed());
+      PlayerManager.setSpeed(UserPreferences.getDefaultPlaybackSpeed(), 'load:global');
     }
     if (autoplay) {
       PlayerManager.play();
@@ -362,15 +382,57 @@ export class PlayerManager {
     PlayerManager.seek(target);
   }
 
-  static setSpeed(speed: number): void {
-    const player: media.AVPlayer | undefined = PlayerManager.player;
-    if (player === undefined) {
-      return;
-    }
-    player.setSpeed(PlayerManager.toPlaybackSpeed(speed));
+  /**
+   * 设置倍速。`source` 只用于日志归因（load:feed / load:global / player-page / avsession / smoke）。
+   *
+   * 注意这里**先无条件更新应用侧状态**再下发：以前 `player === undefined` 时直接 return，
+   * 会出现「偏好已经写进去了、界面数字却没变」，看上去像倍速自己变了。
+   * 是否真的生效由 {@link handleSpeedDone} 校验。
+   */
+  static setSpeed(speed: number, source: string = 'unknown'): void {
+    PlayerManager.intendedSpeed = speed;
     PlayerManager.speed = speed;
+    PlayerManager.speedRetried = false;
+    PlayerManager.applySpeedToPlayer(speed, source);
     const speedData: SpeedChangedData = { speed: speed };
     EventHub.publish(EventType.SPEED_CHANGED, speedData);
+  }
+
+  /** 下发倍速到 AVPlayer（异常/播放器缺失只记日志，不打断调用方） */
+  private static applySpeedToPlayer(speed: number, source: string): void {
+    const player: media.AVPlayer | undefined = PlayerManager.player;
+    if (player === undefined) {
+      Logger.warn(TAG, 'setSpeed skipped (no player) src=' + source + ' request=' + speed);
+      return;
+    }
+    const mode: media.PlaybackSpeed = PlayerManager.toPlaybackSpeed(speed);
+    Logger.info(TAG, 'setSpeed src=' + source + ' request=' + speed + ' mode=' + mode
+      + ' state=' + player.state);
+    try {
+      player.setSpeed(mode);
+    } catch (error) {
+      Logger.error(TAG, 'setSpeed failed request=' + speed + ' mode=' + mode, error as Error);
+    }
+  }
+
+  /**
+   * `speedDone`：`setSpeed()` 每次调用都会回调，带回**实际生效**的档位。
+   *
+   * 与请求值不一致时补发一次（自愈）：本地 fd 播放时 `prepare()` 几乎立刻返回，
+   * `setSpeed` 落在首帧之前有被丢掉的可能 —— 那正是「下载的单集自己变慢」的候选根因。
+   */
+  private static handleSpeedDone(mode: number): void {
+    PlayerManager.effectiveSpeedMode = mode;
+    const expected: number = PlayerManager.toPlaybackSpeed(PlayerManager.intendedSpeed);
+    Logger.info(TAG, 'speedDone effective=' + mode + ' expected=' + expected
+      + ' intended=' + PlayerManager.intendedSpeed);
+    if (mode === expected || PlayerManager.speedRetried) {
+      return;
+    }
+    PlayerManager.speedRetried = true;
+    Logger.warn(TAG, 'speed not effective (' + mode + ' != ' + expected + '), retry '
+      + PlayerManager.intendedSpeed);
+    PlayerManager.applySpeedToPlayer(PlayerManager.intendedSpeed, 'retry');
   }
 
   /** 倍速档位映射（API 12 能力集；非档位值就近取档） */
@@ -459,6 +521,7 @@ export class PlayerManager {
       player.off('error');
       player.off('audioInterrupt');
       player.off('audioOutputDeviceChangeWithInfo');
+      player.off('speedDone');
       await player.release();
     }
     PlayerManager.player = undefined;
@@ -475,6 +538,8 @@ export class PlayerManager {
     PlayerManager.skipEndingFired = false;
     PlayerManager.playIntent = false;
     PlayerManager.pauseCause = PAUSE_CAUSE_NONE;
+    PlayerManager.effectiveSpeedMode = -1;
+    PlayerManager.speedRetried = false;
     PlayerManager.stopBackgroundTask();
     const idleStatus: PlayerStatusData = { status: PlayerManager.status };
     EventHub.publish(EventType.PLAYER_STATUS, idleStatus);
@@ -660,6 +725,15 @@ export class PlayerManager {
     if (state === 'playing') {
       PlayerManager.status = PlayerStatus.PLAYING;
       PlayerManager.pausedAt = 0;
+      // 兜底自愈：进入 playing 后若 speedDone 还没把请求档位确认下来（本地 fd 路径上
+      // prepared 阶段下发有被丢掉的先例），补发一次；补发只做一次，避免来回打架。
+      const expected: number = PlayerManager.toPlaybackSpeed(PlayerManager.intendedSpeed);
+      if (PlayerManager.effectiveSpeedMode !== expected && !PlayerManager.speedRetried) {
+        PlayerManager.speedRetried = true;
+        Logger.warn(TAG, 'speed unverified on playing (effective=' + PlayerManager.effectiveSpeedMode
+          + ' expected=' + expected + '), re-apply ' + PlayerManager.intendedSpeed);
+        PlayerManager.applySpeedToPlayer(PlayerManager.intendedSpeed, 'playing');
+      }
     } else if (state === 'paused') {
       PlayerManager.status = PlayerStatus.PAUSED;
     } else if (state === 'prepared') {
