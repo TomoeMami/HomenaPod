@@ -9,3 +9,6 @@
 - [x] 图标、名称（已改：**HomenaPod** / `com.homenapod.app`）
 - [ ] release 签名配置与 HAP 产物
 - [x] 开源许可：GPL-3.0 声明保留，来源标注 AntennaPod（见 `antennapod-harmony/NOTICE.md`；发布前补 `LICENSE` 全文）
+- [ ] 版本号：**仅当用户明确要求时才改** `antennapod-harmony/AppScope/app.json5`
+      （`versionName` 与 `versionCode` 同步抬一档，如 `1.0.13` / `1000013`），且单独一个提交；
+      功能/修复/文档提交一律**不顺带 bump**（约定见 `PLAN.md` §3.8 与根目录 `AGENTS.md`）
