@@ -80,6 +80,13 @@ export struct HomePage {
   @State playbackPercent: number = 0;
   /** 当前播放项的实时播放位置（上游 notifyPlaybackPositionUpdated 会同时刷新进度条与位置文本） */
   @State playbackPositionMs: number = 0;
+  /**
+   * 下载进度版本号（每个下载进度事件 +1）：下载状态/进度存在 `DownloadManager` 的静态表里、
+   * 不是 @State。旧实现每次进度回调都 `load()`（重查数据库 + 换掉几个 @State 数组），
+   * 首页每个区块连同卡片封面都会重建一次 —— 卡片封面因此连续闪；
+   * 现在只 +1 这个版本号，卡片就地重算下载进度环（`cardDownloadProgress` 读它）。
+   */
+  @State downloadTick: number = 0;
   /** 长按操作菜单的目标单集 */
   @State menuItem: FeedItem | undefined = undefined;
   @State menuShown: boolean = false;
@@ -884,7 +891,15 @@ export struct HomePage {
     this.eventTokens.push(EventHub.subscribe(EventType.PLAYER_STATUS, () => {
       this.load();
     }));
-    this.eventTokens.push(EventHub.subscribe(EventType.EPISODE_DOWNLOAD, () => {
+    this.eventTokens.push(EventHub.subscribe(EventType.EPISODE_DOWNLOAD, (data: object) => {
+      // 进度回调很密（实测约每秒一次）：只 +1 版本号让卡片就地重算进度环，
+      // 不 load() —— load() 会重查数据库并换掉区块数组，卡片封面每次都重建、连续闪。
+      // 开始/暂停/完成/失败这些状态变化仍然走 load()，卡片图标与「管理下载」区块要跟着变。
+      const state: string = (data as Record<string, string>)['state'];
+      if (state === 'PROGRESS') {
+        this.downloadTick = this.downloadTick + 1;
+        return;
+      }
       this.load();
     }));
     this.eventTokens.push(EventHub.subscribe(EventType.DOWNLOAD_LOG, () => {
@@ -1267,7 +1282,9 @@ export struct HomePage {
 
   /** 列表行的下载进度环（-1 = 不画） */
   private downloadProgress(item: FeedItem): number {
-    if (item.media === undefined) {
+    // 读一次下载版本号：见 cardDownloadProgress
+    const tick: number = this.downloadTick;
+    if (item.media === undefined || tick < 0) {
       return -1;
     }
     const state: string = this.downloadState(item);
@@ -1282,7 +1299,9 @@ export struct HomePage {
    * 下载中画进度，已下载画满（`setPercentage(1)`），未下载清零（只留圆钮底色）。
    */
   private cardDownloadProgress(item: FeedItem): number {
-    if (item.media === undefined) {
+    // 读一次下载版本号：进度存在 DownloadManager 的静态表里，靠这个 @State 让卡片随进度事件重算
+    const tick: number = this.downloadTick;
+    if (item.media === undefined || tick < 0) {
       return -1;
     }
     const state: string = this.downloadState(item);

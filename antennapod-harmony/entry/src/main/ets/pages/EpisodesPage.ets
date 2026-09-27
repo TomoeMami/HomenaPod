@@ -47,6 +47,12 @@ struct EpisodesPage {
   // 多选
   @State selecting: boolean = false;
   @State selectedIds: number[] = [];
+  /**
+   * 下载进度版本号（每个下载事件 +1）：下载状态与进度存在 `DownloadManager` 的静态表里、
+   * 不是 @State，行内进度环/图标要靠本页重渲染一次才会重算（键保持稳定、组件不重建，
+   * 封面就不会被重新解码 —— 见 `onDownloadEvent`）。
+   */
+  @State downloadTick: number = 0;
   private favoriteIds: number[] = [];
   private queueIds: number[] = [];
   private downloadToken: number = -1;
@@ -132,7 +138,8 @@ struct EpisodesPage {
         } else {
           List({ space: DesignTokens.SPACE_XS }) {
             // 键值只取 id（LazyForEach 的键必须稳定）：下载进度等行内变化
-            // 由 onDownloadEvent 里的 notifyDataChange(index) 驱动，不再靠键里编进度
+            // 行键保持稳定（item.id）：下载进度由 onDownloadEvent 里的 downloadTick 驱动重算，
+            // 不再靠键里编进度（键一变整行重建 → 封面重新解码 → 闪）
             LazyForEach(this.dataSource, (item: FeedItem) => {
               ListItem() {
                 this.episodeRow(item)
@@ -462,9 +469,11 @@ struct EpisodesPage {
   }
 
   /**
-   * 下载事件只刷新**受影响的那一行**（对照 QueuePage.onDownloadEvent）。
-   * 以前这里是「key 里编进进度 + 换数组引用」逼 ForEach 重算键，LazyForEach 下改成
-   * 精确定位后 `notifyDataChange(index)`：不会因为一次进度回调把整页 1.5 万条重新拉一遍。
+   * 下载事件只刷新**受影响的行**（对照 QueuePage.onDownloadEvent）。
+   * 行键是稳定的 `item.id`，所以不能靠换键重建行；也不能只调 `notifyDataChange(index)`
+   * ——键没变时 ArkUI 不会重算这一行的 `@Prop`（实测下载进度环不出现）。
+   * 改为把本页的 `downloadTick` +1：本页重渲染，可视行按最新进度/状态重算 @Prop，
+   * 组件实例不重建，封面不会被重新解码（这正是「下载时封面闪」的修法）。
    */
   private async onDownloadEvent(data: object): Promise<void> {
     const payload: EpisodeDownloadData = data as EpisodeDownloadData;
@@ -481,8 +490,8 @@ struct EpisodesPage {
       }
       this.items[index] = fresh;
     }
-    // RUNNING / PAUSED / PROGRESS / FAILED / REMOVED 只影响行内进度环，读 DownloadManager 即可
-    this.dataSource.notifyDataChange(index);
+    // RUNNING / PAUSED / PROGRESS / FAILED / REMOVED 只影响行内进度环与图标，读 DownloadManager 即可
+    this.downloadTick = this.downloadTick + 1;
   }
 
   aboutToDisappear(): void {
@@ -510,7 +519,9 @@ struct EpisodesPage {
 
   /** 行内下载进度环的百分比；-1 = 不显示（对照上游 secondaryActionProgress） */
   private downloadProgress(item: FeedItem): number {
-    if (item.media === undefined) {
+    // 读一次下载版本号：进度存在 DownloadManager 的静态表里，靠这个 @State 让本行随进度事件重算
+    const tick: number = this.downloadTick;
+    if (item.media === undefined || tick < 0) {
       return -1;
     }
     return DownloadManager.getProgressPercent(item.media.id);

@@ -116,6 +116,12 @@ export struct InboxView {
   @State playingMediaId: number = -1;
   @State playingPosition: number = 0;
   @State playingDuration: number = 0;
+  /**
+   * 下载进度版本号（每个下载进度事件 +1）：进度存在 `DownloadManager` 的静态表里、
+   * 不是 @State，行内进度环要靠本页重渲染才重算。**不能用行键编码进度**：
+   * 键一变 LazyForEach 会把整行（含封面 `Image`）拆掉重建、封面重新解码 → 「下载时封面时不时闪一下」。
+   */
+  @State downloadTick: number = 0;
   private dataSource: LazyDataSource<FeedItem> = new LazyDataSource<FeedItem>();
   private cursor: InboxCursor | undefined = undefined;
   private loadedIds: Set<number> = new Set<number>();
@@ -1204,7 +1210,8 @@ export struct InboxView {
       }
       return;
     }
-    this.dataSource.notifyDataChange(index);
+    // 进度：本页重渲染一次让可视行重算 @Prop 即可，不重建行（见 downloadTick 注释）
+    this.downloadTick = this.downloadTick + 1;
   }
 
   /** 播放状态变化：当前播放项变了，行内次级按钮要跟着切（播放 / 暂停） */
@@ -1386,7 +1393,9 @@ export struct InboxView {
 
   /** 行内下载进度环的百分比；-1 = 不显示（对照上游 secondaryActionProgress） */
   private downloadProgress(item: FeedItem): number {
-    if (item.media === undefined) {
+    // 读一次下载版本号：进度存在 DownloadManager 的静态表里，靠这个 @State 让本行随进度事件重算
+    const tick: number = this.downloadTick;
+    if (item.media === undefined || tick < 0) {
       return -1;
     }
     const state: string = this.downloadState(item);
@@ -2282,17 +2291,15 @@ export struct InboxView {
   }
 
   /**
-   * ForEach / LazyForEach 只在 key 变化时重建行。下载进度与「正在播放」都存在
-   * DownloadManager / PlayerManager 里、不是 @State，因此把这两项编进 key，变化时才会重建。
+   * ForEach / LazyForEach 只在 key 变化时重建行。「正在播放」存在 PlayerManager 里、不是 @State，
+   * 所以播放状态要编进 key；而**下载进度不能进 key**：进度回调很密，每次都会让整行（含封面
+   * `Image`）重建并重新解码图片，表现为「下载时封面时不时闪一下」——下载状态本身仍编进 key
+   * （未下载 → 下载中 → 已下载要换行内图标），进度则由 `downloadTick` 驱动重算。
    */
   private rowKey(item: FeedItem): string {
     const parts: string[] = [item.id.toString()];
     if (item.media !== undefined) {
-      const state: string = DownloadManager.getStatus(item.media.id);
-      parts.push(state);
-      if (state === 'RUNNING' || state === 'PAUSED') {
-        parts.push(DownloadManager.getProgressPercent(item.media.id).toString());
-      }
+      parts.push(DownloadManager.getStatus(item.media.id));
     }
     parts.push(this.isPlaying(item.id) ? 'playing' : 'idle');
     return parts.join('-');

@@ -85,6 +85,12 @@ export struct QueuePage {
   @State showRemainingTime: boolean = false;
   /** 信息条里的剩余时长需要随倍速偏好变化重算 */
   @State infoTick: number = 0;
+  /**
+   * 下载进度版本号（每个下载进度事件 +1）：进度存在 `DownloadManager` 的静态表里、
+   * 不是 @State，行内的进度环要靠本页重渲染才会重算。**不能用行键编码进度**：
+   * 键一变 LazyForEach 会把整行（含封面 `Image`）拆掉重建、封面重新解码 → 「下载时封面时不时闪一下」。
+   */
+  @State downloadTick: number = 0;
   /** 当前队列里是否有未播单集（空态「前往收件箱」按钮的显示条件） */
   @State inboxHasItems: boolean = false;
   /** 正在拖拽的单集 id（-1 = 未拖拽） */
@@ -505,24 +511,19 @@ export struct QueuePage {
   }
 
   /**
-   * LazyForEach 的行键：**必须把下载状态编进 key**。
+   * LazyForEach 的行键：**只含 id 与下载状态，不含百分比**。
    *
-   * `LazyForEach` 只在 key 变化时重建行，而下载状态与进度存在 `DownloadManager`
-   * 的静态表里（不是 `@State`）：只调 `dataSource.notifyDataChange(index)` 时
-   * ArkUI 认为该行没变，不会重建 `EpisodeRow`，`downloadProgress` / `actionIcon`
-   * 这两个 `@Prop` 也就永远停在首帧——表现为「点下载后图标不变、没有进度环，
-   * 等下载完成才突然变成播放按钮」。`FeedDetailPage.rowKey` 是同一套处理。
+   * `LazyForEach` 只在 key 变化时重建行，而下载状态存在 `DownloadManager` 的静态表里
+   * （不是 `@State`）：状态变化（未下载 → 下载中 → 已下载）本来就要换行内图标，重建一次可以接受。
+   * 但**百分比绝不能进键**：每次进度回调都会让整行（含封面 Image）重建并重新解码图片，
+   * 就是「下载时封面时不时闪一下」；进度改由 `downloadTick` 驱动重算。
    */
   private rowKey(item: FeedItem): string {
     const media: FeedMedia | undefined = this.rowItem(item).media;
     if (media === undefined) {
       return item.id.toString();
     }
-    const state: string = this.downloadState(this.rowItem(item));
-    if (state !== 'RUNNING' && state !== 'PAUSED') {
-      return item.id.toString() + '-' + state;
-    }
-    return item.id.toString() + '-' + state + '-' + DownloadManager.getProgressPercent(media.id).toString();
+    return item.id.toString() + '-' + this.downloadState(this.rowItem(item));
   }
 
   /**
@@ -1505,7 +1506,8 @@ export struct QueuePage {
       await this.refreshRow(this.items[index].id);
       return;
     }
-    this.dataSource.notifyDataChange(index);
+    // 进度：本页重渲染一次让可视行重算 @Prop 即可，不重建行（见 downloadTick 注释）
+    this.downloadTick = this.downloadTick + 1;
   }
 
   /** 只刷新一行（下载进度 / 已播状态 / 收藏），不重建整个列表 */
@@ -2031,8 +2033,10 @@ export struct QueuePage {
 
   /** 行内下载进度环的百分比；-1 = 不显示（对照上游 secondaryActionProgress） */
   private downloadProgress(item: FeedItem): number {
+    // 读一次下载版本号：进度存在 DownloadManager 的静态表里，靠这个 @State 让本行随进度事件重算
+    const tick: number = this.downloadTick;
     const media: FeedMedia | undefined = this.rowItem(item).media;
-    if (media === undefined) {
+    if (media === undefined || tick < 0) {
       return -1;
     }
     return DownloadManager.getProgressPercent(media.id);

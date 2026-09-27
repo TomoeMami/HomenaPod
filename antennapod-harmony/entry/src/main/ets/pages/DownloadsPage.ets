@@ -104,6 +104,17 @@ export struct DownloadsPage {
   /** 行内按钮动作：false = 删除文件（上游默认），true = 播放（prefDownloadsButtonAction） */
   @State downloadsButtonPlay: boolean = false;
   @State downloadsSortOrder: SortOrder = SortOrder.DATE_NEW_OLD;
+  /**
+   * 下载进度版本号（每个下载事件 +1）。
+   *
+   * 下载状态与进度存在 `DownloadManager` 的静态表里，**不是本页的 @State**：行内 @Prop
+   * （进度环 / 百分比 / 已下载字节）想重算，本页必须先重渲染一次。
+   * 旧实现把百分比编进 `rowKey`，靠键变化逼 LazyForEach 重建整行 —— 键一变整行（含封面
+   * `Image` 节点）就被拆掉重建、图片重新解码，用户看到的就是「下载单集时封面时不时闪一下」
+   * （一次 2.4 MB 的下载实测重建 20 次）。改为「键保持稳定 + 版本号驱动重算」：
+   * 组件实例不重建，只有行内 @Prop 更新，封面不闪。
+   */
+  @State downloadTick: number = 0;
   private feedImages: Map<number, string> = new Map<number, string>();
   private feedTitles: Map<number, string> = new Map<number, string>();
   /** 行内取值回查表：列表不重建时行持有的是首帧对象 */
@@ -1418,15 +1429,13 @@ export struct DownloadsPage {
   onDownloadEvent(data: object): void {
     const payload: EpisodeDownloadData = data as EpisodeDownloadData;
     if (payload.state === 'PROGRESS') {
-      // 进度：只重绘这一行（键里编了进度，行才会重建）
-      const index: number = this.items.findIndex((entry: FeedItem) =>
-      entry.media !== undefined && entry.media.id === payload.mediaId);
-      if (index >= 0) {
-        this.dataSource.notifyDataChange(index);
-      }
+      // 进度：本页重渲染一次，可视行按新进度重算 @Prop。
+      // **不换行键也不重建行**：行键一变，行内封面 Image 会重新解码而闪一下（见 downloadTick）
+      this.downloadTick = this.downloadTick + 1;
       return;
     }
     if (payload.state === 'DONE' || payload.state === 'REMOVED' || payload.state === 'FAILED') {
+      this.downloadTick = this.downloadTick + 1;
       this.load();
       if (this.showLogSheet) {
         this.loadLog();
@@ -2261,18 +2270,18 @@ export struct DownloadsPage {
     return media !== undefined && media.fileUrl !== '';
   }
 
-  /** LazyForEach 行键：必须把下载状态与进度编进去，进度变化时行才会重建 */
+  /**
+   * LazyForEach 行键：**只含 id 与下载状态，不含百分比**。
+   * 状态变化（未下载 → 下载中 → 已下载）本来就要换行内图标与操作，重建一次可以接受；
+   * 百分比绝不能进键：每次进度回调都会让整行（含封面）重建并重新解码图片，
+   * 表现为「下载时封面时不时闪一下」。进度刷新改由 `downloadTick` 驱动。
+   */
   private rowKey(item: FeedItem): string {
     const media: FeedMedia | undefined = this.rowItem(item).media;
     if (media === undefined) {
       return item.id.toString();
     }
-    const state: string = this.downloadState(item);
-    if (state !== 'RUNNING' && state !== 'PAUSED') {
-      return item.id.toString() + '-' + state;
-    }
-    return item.id.toString() + '-' + state + '-'
-      + DownloadManager.getProgressPercent(media.id).toString();
+    return item.id.toString() + '-' + this.downloadState(item);
   }
 
   /** 进行中任务的已下载 / 总大小 */
@@ -2300,8 +2309,11 @@ export struct DownloadsPage {
 
   /** 状态行：进行中显示状态与大小，已下载显示「发布日期 · 大小」 */
   metaText(item: FeedItem): string {
+    // 读一次下载版本号：进度存在 DownloadManager 的静态表里（不是 @State），
+    // 这里显式依赖本页的 @State，进度事件才能让本行重算（见 downloadTick 注释）
+    const tick: number = this.downloadTick;
     const state: string = this.downloadState(item);
-    if (state === 'RUNNING' || state === 'PAUSED') {
+    if (tick >= 0 && (state === 'RUNNING' || state === 'PAUSED')) {
       return state === 'PAUSED'
         ? this.text($r('app.string.episode_download_paused')) : this.text($r('app.string.episode_downloading'));
     }

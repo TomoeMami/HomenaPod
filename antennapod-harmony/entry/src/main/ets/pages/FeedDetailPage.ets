@@ -72,6 +72,13 @@ struct FeedDetailPage {
   // 多选（对照上游 EpisodeMultiSelectActionHandler + FloatingSelectMenu）
   @State selecting: boolean = false;
   @State selectedIds: number[] = [];
+  /**
+   * 下载进度版本号（每个下载进度事件 +1）：下载状态与进度存在 `DownloadManager` 的静态表里、
+   * 不是 @State，行内进度环要靠本页重渲染才重算。**不能用行键编码进度**：
+   * 键一变 LazyForEach 会把整行（含封面 `Image`）拆掉重建、图片重新解码
+   * → 用户报的「下载单集时封面时不时闪一下」（实测一次 2.4 MB 下载重建 20 次）。
+   */
+  @State downloadTick: number = 0;
   private actionItem: FeedItem | undefined = undefined;
   private pendingItem: FeedItem | undefined = undefined;
   private streamConfirmed: boolean = false;
@@ -947,8 +954,11 @@ struct FeedDetailPage {
       this.loadEpisodes();
       return;
     }
-    // RUNNING / PAUSED / PROGRESS / FAILED / REMOVED 只影响行内进度指示，读 DownloadManager 即可
-    this.reloadRows();
+    // RUNNING / PAUSED / PROGRESS / FAILED / REMOVED 都只影响行内进度环与图标：
+    // 本页重渲染一次、可视行按新状态重算 @Prop 即可。
+    // **不能走 reloadRows()（setData → onDataReloaded）**：那会把整页行连同封面一起重建，
+    // 下载期间（每来一次进度回调就整页重建一次）封面会连续闪 —— 用户报的故障。
+    this.downloadTick = this.downloadTick + 1;
   }
 
   reloadRows(): void {
@@ -1243,7 +1253,9 @@ struct FeedDetailPage {
 
   /** 行内下载进度环的百分比；-1 = 不显示（对照上游 secondaryActionProgress 的百分比） */
   downloadProgress(item: FeedItem): number {
-    if (item.media === undefined) {
+    // 读一次下载版本号：进度存在 DownloadManager 的静态表里，靠这个 @State 让本行随进度事件重算
+    const tick: number = this.downloadTick;
+    if (item.media === undefined || tick < 0) {
       return -1;
     }
     return DownloadManager.getProgressPercent(item.media.id);
@@ -1255,18 +1267,16 @@ struct FeedDetailPage {
   }
 
   /**
-   * LazyForEach 只在 key 变化时重建行。下载进度存在 DownloadManager 里、不是 @State，
-   * 因此必须把状态/百分比编进 key，否则"下载中 xx%"不会实时刷新。
+   * LazyForEach 只在 key 变化时重建行：**只把下载状态编进 key，不编百分比**。
+   * 状态变化（未下载 → 下载中 → 已下载）本来就要换行内图标，重建一次可以接受；
+   * 百分比进 key 会让每次进度回调都重建整行（含封面 `Image` 重新解码）——
+   * 用户报的「下载单集时封面时不时闪一下」就是这么来的。进度改由 `downloadTick` 驱动重算。
    */
   rowKey(item: FeedItem): string {
     if (item.media === undefined) {
       return item.id.toString();
     }
-    const state: string = this.downloadState(item);
-    if (state !== 'RUNNING' && state !== 'PAUSED') {
-      return item.id.toString() + '-' + state;
-    }
-    return item.id.toString() + '-' + state + '-' + DownloadManager.getProgressPercent(item.media.id).toString();
+    return item.id.toString() + '-' + this.downloadState(item);
   }
 
   /** 播放进度百分比（上游把小于 5% 抬到 5%，否则圆角下看不见） */
