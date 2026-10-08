@@ -16,6 +16,7 @@
     "pages/InboxPage",
     "pages/DownloadsPage",
     "pages/SettingsPage",
-    "pages/EpisodesPage"
+    "pages/EpisodesPage",
+    "pages/AboutPage"
   ]
 }

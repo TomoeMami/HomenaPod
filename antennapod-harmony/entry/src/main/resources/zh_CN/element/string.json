@@ -1683,6 +1683,158 @@
     {
       "name": "time_days_ago",
       "value": "%1$s 天前"
+    },
+    {
+      "name": "about_title",
+      "value": "关于"
+    },
+    {
+      "name": "about_entry",
+      "value": "关于 HomenaPod"
+    },
+    {
+      "name": "about_tagline",
+      "value": "HarmonyOS NEXT 开源播客管理器"
+    },
+    {
+      "name": "about_section_app",
+      "value": "应用信息"
+    },
+    {
+      "name": "about_section_legal",
+      "value": "来源与许可"
+    },
+    {
+      "name": "about_section_privacy",
+      "value": "隐私与数据"
+    },
+    {
+      "name": "about_section_credits",
+      "value": "致谢"
+    },
+    {
+      "name": "about_section_disclaimer",
+      "value": "免责声明"
+    },
+    {
+      "name": "about_row_version",
+      "value": "版本"
+    },
+    {
+      "name": "about_row_bundle",
+      "value": "包名"
+    },
+    {
+      "name": "about_row_runtime",
+      "value": "运行环境"
+    },
+    {
+      "name": "about_row_device",
+      "value": "设备型号"
+    },
+    {
+      "name": "about_row_upstream",
+      "value": "上游基线"
+    },
+    {
+      "name": "about_row_upstream_repo",
+      "value": "上游项目"
+    },
+    {
+      "name": "about_row_license",
+      "value": "许可协议"
+    },
+    {
+      "name": "about_row_source",
+      "value": "源码仓库"
+    },
+    {
+      "name": "about_row_issues",
+      "value": "反馈问题"
+    },
+    {
+      "name": "about_row_docs",
+      "value": "项目文档"
+    },
+    {
+      "name": "about_value_upstream",
+      "value": "AntennaPod 3.12.1（develop @ 8024391）"
+    },
+    {
+      "name": "about_value_license",
+      "value": "GNU GPL-3.0（仅此版本）"
+    },
+    {
+      "name": "about_text_source",
+      "value": "HomenaPod 是开源播客应用 AntennaPod 的 HarmonyOS NEXT 移植实现：功能语义、界面结构与数据库表结构对齐上游，但代码是用 ArkTS / ArkUI 重新实现的，不搬运 Android 源码。本项目与上游同为 GNU GPL-3.0 许可：分发或再发布时必须保留来源标注与许可声明。HomenaPod 不使用 AntennaPod 的名称、图标或品牌作为自己的产品标识。"
+    },
+    {
+      "name": "about_text_privacy_local",
+      "value": "你在应用里产生的一切数据都只留在这台设备上：订阅、播放进度、队列、收藏、收听历史与下载下来的音频。没有账号、没有云同步、没有广告，也没有统计埋点 —— 你的收听行为不会上传给我们或第三方。"
+    },
+    {
+      "name": "about_text_privacy_network",
+      "value": "应用只在你要它干活时联网：刷新播客订阅源、下载封面与音频、在线播放、搜索播客（Apple Podcasts / fyyd / Podcast Index）、导入导出 OPML。请求只发往你订阅的站点与上述搜索服务。"
+    },
+    {
+      "name": "about_text_privacy_permissions",
+      "value": "已声明权限：网络访问、网络状态、后台播放、振动、加速度计（摇一摇跳过）。不申请定位、通讯录、相机或相册权限。"
+    },
+    {
+      "name": "about_text_credits",
+      "value": "HomenaPod 是一个由 AI 生成的开源项目：代码、资源与文档由大语言模型（DeepSeek，经 DeepSeek Harness 驱动）在多轮自然语言对话中产出。项目不含任何闭源第三方 SDK，也没有广告库。"
+    },
+    {
+      "name": "about_text_disclaimer",
+      "value": "本项目按 GNU GPL-3.0「按现状」提供，不附带任何担保。播客音频来自第三方服务器，其可用性与质量不由本项目控制。单集内容、封面、名称与商标归各自权利人所有，本应用只做订阅与播放。"
+    },
+    {
+      "name": "about_credit_upstream_label",
+      "value": "AntennaPod"
+    },
+    {
+      "name": "about_credit_upstream_value",
+      "value": "功能语义与界面蓝本（GPL-3.0）"
+    },
+    {
+      "name": "about_credit_sdk_label",
+      "value": "HarmonyOS NEXT SDK"
+    },
+    {
+      "name": "about_credit_sdk_value",
+      "value": "ArkTS / ArkUI 运行时"
+    },
+    {
+      "name": "about_credit_symbol_label",
+      "value": "系统符号图标"
+    },
+    {
+      "name": "about_credit_symbol_value",
+      "value": "HarmonyOS Symbol（sys.symbol）"
+    },
+    {
+      "name": "about_credit_test_label",
+      "value": "测试框架"
+    },
+    {
+      "name": "about_credit_test_value",
+      "value": "@ohos/hypium（Apache-2.0）"
+    },
+    {
+      "name": "about_copy_version",
+      "value": "复制版本信息"
+    },
+    {
+      "name": "about_copied",
+      "value": "版本信息已复制"
+    },
+    {
+      "name": "about_link_copied",
+      "value": "未找到可用浏览器，已复制链接"
+    },
+    {
+      "name": "about_copyright",
+      "value": "© 2026 HomenaPod 贡献者"
     }
   ]
 }

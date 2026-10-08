@@ -1,6 +1,7 @@
 import router from '@ohos.router';
 import common from '@ohos.app.ability.common';
 import { ConfigurationConstant } from '@kit.AbilityKit';
+import bundleManager from '@ohos.bundle.bundleManager';
 import i18n from '@ohos.i18n';
 import { UserPreferences } from '../prefs/UserPreferences';
 import { SortOrder } from '../model/Enums';
@@ -87,6 +88,8 @@ export struct SettingsPage {
   /** 内存中的右滑 / 左滑动作 id（点「确定」才落盘） */
   @State rightAction: string = SwipeActionId.NONE;
   @State leftAction: string = SwipeActionId.NONE;
+  /** 「关于」入口行右侧的当前版本（运行时从包信息读取，不硬编码） */
+  @State appVersion: string = '';
 
   build() {
     // 滑动动作弹层要盖住整个设置列表：对齐 InboxView / EpisodesPage，Stack 底部对齐，
@@ -350,6 +353,17 @@ export struct SettingsPage {
               this.rowDivider()
               this.tapRow($r('sys.symbol.trash'), $r('app.string.setting_clear_cache'), () => {
                 this.clearCache();
+              })
+            }
+            .width('100%')
+          }
+
+          // ── About（上游 preferences.xml 的 project 分类里那条 prefAbout）──
+          this.categoryTitle($r('app.string.about_title'))
+          RowCard({ pad: 0, radius: DesignTokens.RADIUS_ROW }) {
+            Column() {
+              this.navRow($r('sys.symbol.info_circle'), $r('app.string.about_entry'), this.appVersion, () => {
+                router.pushUrl({ url: 'pages/AboutPage' });
               })
             }
             .width('100%')
@@ -966,6 +980,17 @@ export struct SettingsPage {
     this.unpauseOnBluetoothReconnect = UserPreferences.isUnpauseOnBluetoothReconnect();
     this.rewindOnBluetoothDisconnect = UserPreferences.isRewindOnBluetoothDisconnect();
     this.bluetoothRewindText = UserPreferences.getBluetoothDisconnectRewindSecs().toString();
+    this.appVersion = SettingsPage.readVersionLabel();
+  }
+
+  /** 「关于」入口的版本文案（v1.0.14）；读包信息失败时留空，入口行照常可点 */
+  private static readVersionLabel(): string {
+    try {
+      const info = bundleManager.getBundleInfoForSelfSync(bundleManager.BundleFlag.GET_BUNDLE_INFO_DEFAULT);
+      return 'v' + info.versionName;
+    } catch (error) {
+      return '';
+    }
   }
 
   /** 下载排序当前值文案（与订阅详情页的排序文案一致） */

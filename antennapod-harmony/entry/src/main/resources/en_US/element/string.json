@@ -1683,6 +1683,158 @@
     {
       "name": "time_days_ago",
       "value": "%1$s days ago"
+    },
+    {
+      "name": "about_title",
+      "value": "About"
+    },
+    {
+      "name": "about_entry",
+      "value": "About HomenaPod"
+    },
+    {
+      "name": "about_tagline",
+      "value": "Open-source podcast manager for HarmonyOS NEXT"
+    },
+    {
+      "name": "about_section_app",
+      "value": "App info"
+    },
+    {
+      "name": "about_section_legal",
+      "value": "Source & license"
+    },
+    {
+      "name": "about_section_privacy",
+      "value": "Privacy & data"
+    },
+    {
+      "name": "about_section_credits",
+      "value": "Credits"
+    },
+    {
+      "name": "about_section_disclaimer",
+      "value": "Disclaimer"
+    },
+    {
+      "name": "about_row_version",
+      "value": "Version"
+    },
+    {
+      "name": "about_row_bundle",
+      "value": "Bundle name"
+    },
+    {
+      "name": "about_row_runtime",
+      "value": "Runtime"
+    },
+    {
+      "name": "about_row_device",
+      "value": "Device"
+    },
+    {
+      "name": "about_row_upstream",
+      "value": "Upstream baseline"
+    },
+    {
+      "name": "about_row_upstream_repo",
+      "value": "Upstream project"
+    },
+    {
+      "name": "about_row_license",
+      "value": "License"
+    },
+    {
+      "name": "about_row_source",
+      "value": "Source code"
+    },
+    {
+      "name": "about_row_issues",
+      "value": "Report an issue"
+    },
+    {
+      "name": "about_row_docs",
+      "value": "Documentation"
+    },
+    {
+      "name": "about_value_upstream",
+      "value": "AntennaPod 3.12.1 (develop @ 8024391)"
+    },
+    {
+      "name": "about_value_license",
+      "value": "GNU GPL-3.0-only"
+    },
+    {
+      "name": "about_text_source",
+      "value": "HomenaPod is a HarmonyOS NEXT port of the open-source podcast app AntennaPod. Feature semantics, screen structure and database schema are aligned with the upstream project, but the code is a fresh ArkTS / ArkUI implementation - no Android source is copied. It is distributed under the GNU GPL-3.0, the same license as upstream: any redistribution must keep this attribution and the license notice. HomenaPod does not use AntennaPod's name, icon or brand as its own product identity."
+    },
+    {
+      "name": "about_text_privacy_local",
+      "value": "Everything you create stays on this device: subscriptions, playback progress, queue, favourites, listening history and downloaded audio. There is no account, no cloud sync, no ads and no analytics - nothing about your listening is uploaded to us or to third parties."
+    },
+    {
+      "name": "about_text_privacy_network",
+      "value": "The app goes online only to do what you asked: refresh podcast feeds, download cover art and audio, stream episodes, search podcast directories (Apple Podcasts / fyyd / Podcast Index), and import or export OPML. Requests go to the sites you subscribed to and to the search services above."
+    },
+    {
+      "name": "about_text_privacy_permissions",
+      "value": "Declared permissions: network access, network state, background audio playback, vibration and accelerometer (shake to skip). No location, contacts, camera or photo access is requested."
+    },
+    {
+      "name": "about_text_credits",
+      "value": "HomenaPod is an AI-generated open-source project: its code, resources and documentation were produced by a large language model (DeepSeek, driven by DeepSeek Harness) over iterative natural-language sessions. It bundles no closed-source third-party SDK and no advertising library."
+    },
+    {
+      "name": "about_text_disclaimer",
+      "value": "Provided as-is under the GNU GPL-3.0, without warranty of any kind. Podcast audio comes from third-party servers whose availability and quality are outside our control. Episodes, artwork, names and trademarks belong to their respective owners; this app only subscribes to and plays them."
+    },
+    {
+      "name": "about_credit_upstream_label",
+      "value": "AntennaPod"
+    },
+    {
+      "name": "about_credit_upstream_value",
+      "value": "Feature & UI reference (GPL-3.0)"
+    },
+    {
+      "name": "about_credit_sdk_label",
+      "value": "HarmonyOS NEXT SDK"
+    },
+    {
+      "name": "about_credit_sdk_value",
+      "value": "ArkTS / ArkUI runtime"
+    },
+    {
+      "name": "about_credit_symbol_label",
+      "value": "System symbols"
+    },
+    {
+      "name": "about_credit_symbol_value",
+      "value": "HarmonyOS Symbol (sys.symbol)"
+    },
+    {
+      "name": "about_credit_test_label",
+      "value": "Test framework"
+    },
+    {
+      "name": "about_credit_test_value",
+      "value": "@ohos/hypium (Apache-2.0)"
+    },
+    {
+      "name": "about_copy_version",
+      "value": "Copy version info"
+    },
+    {
+      "name": "about_copied",
+      "value": "Version info copied"
+    },
+    {
+      "name": "about_link_copied",
+      "value": "No browser available - link copied instead"
+    },
+    {
+      "name": "about_copyright",
+      "value": "© 2026 HomenaPod contributors"
     }
   ]
 }
