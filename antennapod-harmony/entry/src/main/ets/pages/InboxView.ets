@@ -142,6 +142,10 @@ export struct InboxView {
   private positionToken: number = -1;
   private refreshStateToken: number = -1;
   private messageTimerId: number = -1;
+  /**
+   * 列表控制器。除恢复滚动位置外，还负责在划出动作执行后把行收回原位：
+   * `swipeAction.onAction` 触发后行不会自动回弹（见 `closeSwipes`）。
+   */
   private listScroller: ListScroller = new ListScroller();
   /** 首屏加载完成后是否还要恢复滚动位置（上游 onItemsFirstLoaded → restoreScrollPosition） */
   private restoreScrollPending: boolean = true;
@@ -845,8 +849,25 @@ export struct InboxView {
     })
   }
 
+  /**
+   * 收起已划出的行。`swipeAction.onAction` 触发后框架不会自动复位
+   * （官方 FAQ「如何将 ListItem 的 swipeAction 滑动效果恢复至未滑动」给的正是
+   * `ListScroller.closeAllSwipeActions()`）。默认的「加入队列 / 移出收件箱」都会删行、
+   * 看不出问题，但配置成「开始下载 / 收藏 / 分享」时行会留在列表里，
+   * 不收回就会一直停在滑出状态。
+   */
+  private closeSwipes(): void {
+    try {
+      this.listScroller.closeAllSwipeActions();
+    } catch (error) {
+      // 列表未绑定时（首屏加载中）忽略：此时不可能有展开的划出项
+    }
+  }
+
   /** 划出项动作分发（动作集合见 SwipeActions.availableIds：收件箱不含标记已播 / 删除文件） */
   private runSwipeAction(id: string, item: FeedItem): void {
+    // 先收回划出项再执行动作：动作多为异步落库，等它回来再收会有明显延迟
+    this.closeSwipes();
     if (id === SwipeActionId.ADD_TO_QUEUE) {
       this.addToQueue(item);
       return;

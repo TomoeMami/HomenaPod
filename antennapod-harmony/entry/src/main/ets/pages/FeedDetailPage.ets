@@ -48,6 +48,11 @@ struct FeedDetailPage {
   /** 划出后继续拖动的距离阈值（vp）：进入该区域松手立即执行「标记为已播放/未播放」 */
   private static readonly SWIPE_ACTION_DISTANCE: number = 40;
   private dataSource: LazyDataSource<FeedItem> = new LazyDataSource<FeedItem>();
+  /**
+   * 列表控制器。`swipeAction.onAction` 触发后行不会自动回弹，
+   * 必须靠 `ListScroller.closeAllSwipeActions()` 收回（见 `closeSwipes`）。
+   */
+  private listScroller: ListScroller = new ListScroller();
   @State feed: Feed | undefined = undefined;
   @State episodes: FeedItem[] = [];
   @State filter: string = 'all';
@@ -176,7 +181,7 @@ struct FeedDetailPage {
           .layoutWeight(1)
           .justifyContent(FlexAlign.Center)
         } else {
-          List({ space: DesignTokens.SPACE_S }) {
+          List({ space: DesignTokens.SPACE_S, scroller: this.listScroller }) {
             LazyForEach(this.dataSource, (item: FeedItem) => {
               ListItem() {
                 this.episodeRow(item)
@@ -654,8 +659,24 @@ struct FeedDetailPage {
     })
   }
 
+  /**
+   * 收起已划出的行。`swipeAction.onAction` 触发后框架不会自动复位
+   * （官方 FAQ「如何将 ListItem 的 swipeAction 滑动效果恢复至未滑动」给的正是
+   * `ListScroller.closeAllSwipeActions()`）；上游 ItemTouchHelper 会自动复位，
+   * 本移植版漏掉这段，「左滑标记为已播放」这种不删行的动作会把行一直停在滑出状态。
+   */
+  private closeSwipes(): void {
+    try {
+      this.listScroller.closeAllSwipeActions();
+    } catch (error) {
+      // 列表未绑定时（加载中 / 空列表）忽略：此时不可能有展开的划出项
+    }
+  }
+
   /** 划出项动作分发：只调用本页已有方法，不在这里重复实现动作逻辑 */
   private runSwipeAction(id: string, item: FeedItem): void {
+    // 先收回划出项再执行动作：动作多为异步落库，等它回来再收会有明显延迟
+    this.closeSwipes();
     if (id === SwipeActionId.MARK_PLAYED) {
       this.togglePlayed(item);
       return;

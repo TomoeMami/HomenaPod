@@ -86,6 +86,11 @@ export struct DownloadsPage {
   private static mobileBypassUntil: number = 0;
 
   private dataSource: LazyDataSource<FeedItem> = new LazyDataSource<FeedItem>();
+  /**
+   * 列表控制器。划出动作执行后必须用它把行收回原位：
+   * `swipeAction.onAction` 触发后行**不会自动回弹**（见 `closeSwipes`）。
+   */
+  private listScroller: ListScroller = new ListScroller();
   @State items: FeedItem[] = [];
   @State loading: boolean = false;
   /** 是否已完成首次加载（骨架屏只在首次显示） */
@@ -191,7 +196,7 @@ export struct DownloadsPage {
         } else {
           // 下拉刷新（上游 SwipeRefreshLayout：下拉 = 更新订阅）
           Refresh({ refreshing: this.refreshing }) {
-            List({ space: DesignTokens.SPACE_XS }) {
+            List({ space: DesignTokens.SPACE_XS, scroller: this.listScroller }) {
               LazyForEach(this.dataSource, (item: FeedItem) => {
                 ListItem() {
                   this.downloadRow(item)
@@ -479,8 +484,30 @@ export struct DownloadsPage {
     })
   }
 
+  /**
+   * 收起已划出的行。
+   *
+   * `ListItem.swipeAction` 的 `onAction`（拖过动作区松手）触发后，框架**不会**把行弹回原位——
+   * 只有「滑动/删除该行」这类操作才会顺带消失。上游 AntennaPod 用 `ItemTouchHelper`，
+   * 松手后框架必定复位，所以没有这段逻辑；本移植版必须显式调用
+   * `ListScroller.closeAllSwipeActions()`（官方 FAQ「如何将 ListItem 的 swipeAction
+   * 滑动效果恢复至未滑动」给的正是这个 API）。
+   *
+   * 本页默认右滑 = 加入队列，执行后行仍留在「已完成下载」列表里，漏掉这段就会表现为
+   * **「从左往右加入队列后行一直停在滑出状态、不自动恢复」**。
+   */
+  private closeSwipes(): void {
+    try {
+      this.listScroller.closeAllSwipeActions();
+    } catch (error) {
+      // 列表未绑定时（首屏加载中）忽略：此时不可能有展开的划出项
+    }
+  }
+
   /** 划出项动作分发（只调用本页已有方法） */
   private runSwipeAction(id: string, item: FeedItem): void {
+    // 先收回划出项再执行动作：动作多为异步落库，等它回来再收会有明显延迟
+    this.closeSwipes();
     if (id === SwipeActionId.ADD_TO_QUEUE) {
       this.batchQueue([item], true);
       return;

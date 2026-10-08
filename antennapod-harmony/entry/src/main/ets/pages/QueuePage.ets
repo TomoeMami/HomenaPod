@@ -851,8 +851,13 @@ export struct QueuePage {
     })
   }
 
-  /** 执行左/右滑动作（对照上游 SwipeActions.onSwiped → 各 SwipeAction.performAction） */
+  /**
+   * 执行左/右滑动作（对照上游 SwipeActions.onSwiped → 各 SwipeAction.performAction）。
+   * 入口先收起划出项：`onAction` 触发后行不会自动回弹，而队列屏可配置的动作里
+   * 标记已播 / 收藏 / 分享 / 置顶 / 置底都不删行，漏掉这一步行会一直停在滑出状态。
+   */
   private runSwipeAction(id: string, item: FeedItem): void {
+    this.closeSwipes();
     if (id === SwipeActionId.REMOVE_FROM_QUEUE) {
       this.removeFromQueue(item.id);
     } else if (id === SwipeActionId.START_DOWNLOAD) {

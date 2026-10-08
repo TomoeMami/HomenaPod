@@ -120,6 +120,12 @@ export struct HomePage {
   private static readonly SWIPE_ACTION_DISTANCE: number = 40;
   private surpriseSeed: number = newSurpriseSeed();
   private eventTokens: number[] = [];
+  /**
+   * 列表控制器。`swipeAction.onAction` 触发后行不会自动回弹，
+   * 必须靠 `ListScroller.closeAllSwipeActions()` 收回（见 `closeSwipes`）。
+   * 两个区块（看新内容 / 管理下载）在同一个 `List` 里，共用一个控制器即可。
+   */
+  private listScroller: ListScroller = new ListScroller();
   onNavigate: (target: string) => void = () => {
   };
 
@@ -174,7 +180,7 @@ export struct HomePage {
           Refresh({ refreshing: this.refreshing }) {
             // 内容区是一个纵向 List（上游 homeContainer 里每个 Section 都是独立 RecyclerView）：
             // 竖排的单集行必须是 ListItem，`swipeAction`（ListItem 的属性）才能挂上去。
-            List({ space: 0 }) {
+            List({ space: 0, scroller: this.listScroller }) {
               ForEach(this.visibleSections(), (tag: string) => {
                 if (tag === 'continue') {
                   ListItem() {
@@ -632,11 +638,28 @@ export struct HomePage {
     })
   }
 
+  /**
+   * 收起已划出的行。`swipeAction.onAction` 触发后框架不会自动复位
+   * （上游 ItemTouchHelper 会自动复位，本移植版必须显式调用
+   * `ListScroller.closeAllSwipeActions()`，见官方 FAQ「如何将 ListItem 的
+   * swipeAction 滑动效果恢复至未滑动」）；否则「加入队列 / 标记已播 / 收藏」
+   * 这类不删行的动作会把行一直停在滑出状态。
+   */
+  private closeSwipes(): void {
+    try {
+      this.listScroller.closeAllSwipeActions();
+    } catch (error) {
+      // 列表未绑定时（欢迎页 / 编辑模式）忽略：此时不可能有展开的划出项
+    }
+  }
+
   /** 划出项动作分发：只调用本页已有方法，不在这里重复实现动作逻辑 */
   private runSwipeAction(screen: string, id: string, item: FeedItem): void {
     if (id === SwipeActionId.NONE) {
       return;
     }
+    // 先收回划出项再执行动作：动作多为异步落库，等它回来再收会有明显延迟
+    this.closeSwipes();
     if (id === SwipeActionId.ADD_TO_QUEUE) {
       this.addToQueue(item);
       return;
