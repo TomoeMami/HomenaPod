@@ -174,6 +174,7 @@
 | 添加播客 `AddFeedPage` | `addfeed.xml`：标题「Add podcast」、无工具栏动作；圆角 28dp 搜索卡 + 6 行 `AddPodcastTextView`（minHeight 48dp、上下 8dp、左右 16dp、图标 + 14sp 文案） | 同构：28vp 搜索卡 + 6 行（RSS 地址 / 本地文件夹 / Apple Podcasts / fyyd / Podcast Index / OPML），RSS 行内联原有 URL 输入 + 私有订阅开关 + 订阅按钮 |
 | 搜索 `SearchPage` | `search_fragment.xml`：标题「Search」+ 搜索动作；先订阅结果、后单集结果两个列表 | 同构：标题 + 搜索动作 + 圆角输入框 + 加载指示；`FeedCover` 行（订阅结果）在前、`EpisodeRow`（单集结果，本地全库检索）在后；空态图标 32vp + 16sp 文案 |
 | OPML `OpmlPage` | `opml_selection.xml`：多选列表 + Select all/Deselect all + Confirm/Cancel | 同构：`OverflowButton`（全选/取消全选）+ 导出动作；多选行（勾选图标 + 标题，minHeight 48vp）+ 底部「取消 / 确认」40vp 双按钮 |
+| 备份与恢复 `ImportExportPage` | `preferences_import_export.xml`（`PreferenceScreen`）：Database 分类（导出 / 自动导出开关 / 导入）+ OPML 分类（导出 / 导入）+ HTML 分类 | 同构：`PreferenceCategory` 式分类标题 + `surface` 卡片；Database / OPML 两组共 4 行（24vp 图标 + 16sp 标题 + 14sp 摘要）。差异：自动导出开关与 HTML / 收藏导出未实现（见 §4）；导入确认、导入成功（重启）、错误三态用页内居中弹层承载上游的 `MaterialAlertDialog` |
 | 下载 `DownloadsPage` | `simple_list_fragment.xml` + `CompletedDownloadsFragment`：工具栏（搜索 / 下载记录 / 溢出：删除已播放·刷新·排序）+ 已下载单集列表（含进行中的下载，`feeditemlist_item.xml` 行）+ 下拉刷新 + 滑动动作 + 多选动作栏；下载记录是独立底部弹层 `DownloadLogFragment` | `AppBar` + 搜索 / 下载记录 / 溢出三动作 + `EpisodeRow` 已下载单集列表（进行中的下载按上游顺序排在前部，行内显示「已下载/总量」与 4vp 进度）+ 下拉刷新 + `SwipeActions(DOWNLOADS)` + 多选动作栏（112vp 卡片）；下载记录 / 排序 / 删除已播放确认 / 日志详情 / 移动网络确认均为页内弹层（第 53 轮按上游重做） |
 | 播放历史 `HistoryPage` | `playback_history.xml`：标题 + Clear history（列表非空时显示） | `AppBar` + 清空动作 + 「继续收听 / 全部记录」两组 + `EpisodeRow` |
 | 收藏 `FavoritesPage` | `favorites.xml`：标题 + 搜索动作 | `AppBar` + 搜索动作 + `EpisodeRow`（星标状态图标） |
@@ -228,6 +229,9 @@
 | 37 | 滑动动作可配置的屏幕集合（队列 / 收件箱 / 全部单集 / 已下载 / 订阅详情 / 播放历史 / 收藏） | **替代实现（第 41 轮）** | 只提供本移植版真实存在的 4 个滑动面：队列 / 收件箱 / 订阅详情 / 已下载（首页「看新内容」用收件箱配置、「管理下载」用已下载配置）；「全部单集 / 播放历史 / 收藏」当前没有滑动面，不列出空配置项。 |
 | 38 | 各屏滑动默认值（收件箱左滑 = 移出收件箱、订阅详情 = 收藏/下载…） | **相对调整（第 41 轮）** | 队列默认值按上游对齐（左右都是「移出队列」）；其余屏幕沿用本移植版既有默认值，避免在队列改造里顺带改掉别的页面的手势习惯。 |
 | 39 | 队列页作为独立 Fragment（含 systembar inset、`LiftOnScrollListener` 抬升标题栏） | **保持** | 本端队列是底栏页签（`Index.ets` 的 `TabContent`），标题栏为大标题式，与首页 / 待处理 / 订阅同一套外壳（第 27 轮已记录）。 |
+| 40 | 「备份与恢复」里的**自动数据库导出**开关（`prefAutomaticDatabaseExport` + `AutomaticDatabaseExportWorker`） | **跳过（第 58 轮）** | 上游靠 `WorkManager` 每 3 天写一份备份并只留最近 5 份；本端要新增一个 workScheduler 任务 + 目录保留策略，与本轮「两个导入导出功能」无关，先不做（功能清单已记在 `docs/feature-diff/04-settings-shell-platform.md`）。 |
+| 41 | 「备份与恢复」里的 **HTML 导出 / 收藏导出**（`prefHtmlExport` / `prefFavoritesExport`） | **跳过（第 58 轮）** | 上游把收藏与订阅渲染成 HTML 网页（`HtmlWriter` / `FavoritesWriter`）；本端本轮只做用户要求的两项（OPML 与整库），HTML 导出留待需要时再补。 |
+| 42 | 数据库导入后的**强制重启** | **等价实现（第 58 轮）** | 上游 `ImportExportPreferencesFragment.forceRestart()` 用 `PackageManager` 重启进程；本端用 `ApplicationContext.restartApp(want)`（API 12，兼容 `compatibleSdkVersion 5.0.2(14)`），失败时退回 `terminateSelf()`。 |
 
 ---
 

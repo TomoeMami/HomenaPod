@@ -1843,6 +1843,102 @@
     {
       "name": "about_copyright",
       "value": "© 2026 HomenaPod contributors"
+    },
+    {
+      "name": "import_export_pref",
+      "value": "Backup & restore"
+    },
+    {
+      "name": "import_export_summary",
+      "value": "Move subscriptions and queue to another device"
+    },
+    {
+      "name": "settings_category_database",
+      "value": "Database"
+    },
+    {
+      "name": "settings_category_opml",
+      "value": "OPML"
+    },
+    {
+      "name": "database_export_label",
+      "value": "Database export"
+    },
+    {
+      "name": "database_export_summary",
+      "value": "Transfer subscriptions, listened episodes and queue to HomenaPod on another device"
+    },
+    {
+      "name": "database_import_label",
+      "value": "Database import"
+    },
+    {
+      "name": "database_import_summary",
+      "value": "Import a HomenaPod database from another device"
+    },
+    {
+      "name": "database_import_warning",
+      "value": "Importing a database will replace all of your current subscriptions and playing history. You should export your current database as a backup. Do you want to replace?"
+    },
+    {
+      "name": "opml_export_label",
+      "value": "OPML export"
+    },
+    {
+      "name": "opml_export_summary",
+      "value": "Transfer your subscriptions to another podcast app"
+    },
+    {
+      "name": "opml_import_label",
+      "value": "OPML import"
+    },
+    {
+      "name": "opml_import_summary",
+      "value": "Import your subscriptions from another podcast app"
+    },
+    {
+      "name": "export_success_title",
+      "value": "Export successful"
+    },
+    {
+      "name": "export_error_label",
+      "value": "Export error"
+    },
+    {
+      "name": "import_error_label",
+      "value": "Import error"
+    },
+    {
+      "name": "import_not_a_database",
+      "value": "This file is not a HomenaPod database backup."
+    },
+    {
+      "name": "import_no_downgrade",
+      "value": "This database was exported with a newer version of HomenaPod. Your current installation does not yet know how to handle this file."
+    },
+    {
+      "name": "successful_import_label",
+      "value": "Import successful"
+    },
+    {
+      "name": "import_ok",
+      "value": "Please press OK to restart HomenaPod"
+    },
+    {
+      "name": "opml_reader_error",
+      "value": "The OPML file does not contain any subscriptions."
+    },
+    {
+      "name": "please_wait",
+      "value": "Please wait…"
+    },
+    {
+      "name": "ok_label",
+      "value": "OK"
+    },
+    {
+      "name": "no_label",
+      "value": "No"
     }
   ]
 }

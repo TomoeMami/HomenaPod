@@ -9,6 +9,7 @@
     "pages/PlayerPage",
     "pages/SearchPage",
     "pages/OpmlPage",
+    "pages/ImportExportPage",
     "pages/FavoritesPage",
     "pages/StoragePage",
     "pages/HistoryPage",

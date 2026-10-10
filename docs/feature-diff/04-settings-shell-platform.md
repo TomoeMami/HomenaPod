@@ -185,7 +185,7 @@
 | `prefScreenPlayback` | `preferences.xml:21` | 无 | 同上 |
 | `prefScreenDownloads` | `preferences.xml:27` | 无 | 同上 |
 | `prefScreenSynchronization` | `preferences.xml:33` | 无 | 同步整块缺失 |
-| `prefScreenImportExport` | `preferences.xml:39` | 无 | 同上 |
+| `prefScreenImportExport` | `preferences.xml:39` | 对应 `pages/ImportExportPage.ets`（无 key） | 「备份与恢复」二级页：数据库导出/导入 + OPML 导出/导入（第 58 轮补齐） |
 | `notifications` | `preferences.xml:45` | 无 | 上游跳系统通知设置 |
 | `prefScreenParentalControl` | `preferences.xml:50` | 无 | — |
 | `prefDocumentation` | `preferences.xml:59` | 无 | 外链 |
@@ -239,11 +239,11 @@
 | `prefAutoDeleteLocal` | `preferences_auto_deletion.xml:14` | 无 | — |
 | `prefFavoriteKeepsEpisode` | `preferences_auto_deletion.xml:20` | 无 | — |
 | `prefEpisodeCleanup` | `preferences_auto_deletion.xml:26` | 无 | — |
-| `prefDatabaseExport` | `preferences_import_export.xml:8` | 无 | — |
-| `prefAutomaticDatabaseExport` | `preferences_import_export.xml:13` | 无 | — |
-| `prefDatabaseImport` | `preferences_import_export.xml:18` | 无 | — |
-| `prefOpmlExport` | `preferences_import_export.xml:26` | 对应 `OpmlPage.ets:306-322`（无 key） | 功能有，偏好键无 |
-| `prefOpmlImport` | `preferences_import_export.xml:30` | 对应 `OpmlPage.ets:254-303`（无 key） | 同上 |
+| `prefDatabaseExport` | `preferences_import_export.xml:8` | 对应 `ImportExportPage.ets:304-321` + `DatabaseBackupService.exportTo`（无 key） | 整库导出：`relationalStore.backup()` 快照 → 拷到用户选的位置（对应上游 DatabaseExporter.exportToDocument） |
+| `prefAutomaticDatabaseExport` | `preferences_import_export.xml:13` | 无 | 自动备份（上游 AutomaticDatabaseExportWorker）未移植 |
+| `prefDatabaseImport` | `preferences_import_export.xml:18` | 对应 `ImportExportPage.ets:326-355` + `DatabaseBackupService.importFrom`（无 key） | 整库导入：警告确认 → SQLite 头校验（拒绝更新版本）→ `restore()` → 重启应用 |
+| `prefOpmlExport` | `preferences_import_export.xml:26` | 对应 `ImportExportPage.ets:374-395` / `OpmlService.exportOpml`（无 key） | 文件名 `homenapod-feeds-yyyy-MM-dd.opml`；只写已订阅，outline 属性顺序与 `OpmlWriter` 一致（含 `dateCreated`） |
+| `prefOpmlImport` | `preferences_import_export.xml:30` | 对应 `ImportExportPage.ets:397-410` → `OpmlPage.ets:279-329`（无 key） | 先选文件再进勾选页（上游 `OpmlImportActivity`），标题优先 `title`、按 BOM 判编码 |
 | `prefHtmlExport` | `preferences_import_export.xml:37` | 无 | — |
 | `prefFavoritesExport` | `preferences_import_export.xml:41` | 无 | — |
 | `prefShowDownloadReport` | `preferences_notifications.xml:10` | 无 | — |

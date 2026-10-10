@@ -32,8 +32,9 @@ New-Item -ItemType Directory -Path (Join-Path $work 'model'), (Join-Path $work '
 
 $models = @('Enums','Feed','FeedItem','FeedMedia','FeedPreferences','Chapter','Playable','QueueItem',
             'DownloadLogEntry','FeedFilter','FeedItemFilter')
-$utils = @('DurationUtils','DateUtils','MimeTypeUtils','HtmlCleaner','ShownotesText','SortUtils','InboxBaseline')
-$parser = @('XmlReader','FeedParser')
+$utils = @('DurationUtils','DateUtils','MimeTypeUtils','HtmlCleaner','ShownotesText','SortUtils','InboxBaseline',
+           'SqliteHeader')
+$parser = @('XmlReader','FeedParser','OpmlDocument')
 # player 下只有「纯逻辑」文件能进这里：不 import 任何 @kit.*（OutputDevicePolicy 便是如此）
 $player = @('OutputDevicePolicy','MediaButtonPolicy','PlaybackSpeedPolicy')
 foreach ($m in $models) { Copy-Item (Join-Path $src "model/$m.ets") (Join-Path $work "model/$m.ts") }
@@ -485,6 +486,88 @@ assert.strictEqual(FeedParser.parseFeed(
   + '<item><title>e</title><guid>g</guid><description>短</description>'
   + '<itunes:summary>itunes 里的长摘要</itunes:summary></item>'
   + '</channel></rss>').feed.items[0].description, 'itunes 里的长摘要');
+
+// ---- OPML 导入导出（OpmlDocument：对照上游 OpmlWriter / OpmlReader）----
+const { OpmlDocument } = require('./parser/OpmlDocument.js');
+// 写出：head 带 title + dateCreated（RFC822 风格），outline 属性顺序与上游一致；
+// htmlUrl / type 为空时不写这两个属性。
+const opmlCreated = new Date(2026, 9, 11, 8, 5, 3);
+const opmlXml = OpmlDocument.writeDocument([
+  { text: 'A & B', xmlUrl: 'https://example.com/a.xml', htmlUrl: 'https://example.com/a', type: 'rss' },
+  { text: 'No html', xmlUrl: 'https://example.com/b.xml', htmlUrl: '', type: '' }
+], 'HomenaPod Subscriptions', opmlCreated);
+assert.ok(opmlXml.indexOf('<title>HomenaPod Subscriptions</title>') >= 0);
+assert.ok(opmlXml.indexOf('<dateCreated>11 Oct 26 08:05:03 ') >= 0);
+assert.ok(opmlXml.indexOf('<opml version="2.0">') >= 0);
+assert.ok(opmlXml.indexOf('text="A &amp; B" title="A &amp; B" type="rss" '
+  + 'xmlUrl="https://example.com/a.xml" htmlUrl="https://example.com/a"') >= 0);
+assert.ok(opmlXml.indexOf('<outline text="No html" title="No html" '
+  + 'xmlUrl="https://example.com/b.xml"/>') >= 0);
+assert.strictEqual(OpmlDocument.defaultFileName(new Date(2026, 0, 2)), 'homenapod-feeds-2026-01-02.opml');
+
+// 读回：写完再解析，字段一一对上（text / xmlUrl / htmlUrl / type）
+const opmlRound = OpmlDocument.readDocument(opmlXml);
+assert.strictEqual(opmlRound.length, 2);
+assert.strictEqual(opmlRound[0].text, 'A & B');
+assert.strictEqual(opmlRound[0].xmlUrl, 'https://example.com/a.xml');
+assert.strictEqual(opmlRound[0].htmlUrl, 'https://example.com/a');
+assert.strictEqual(opmlRound[0].type, 'rss');
+assert.strictEqual(opmlRound[1].htmlUrl, '');
+assert.strictEqual(opmlRound[1].text, 'No html');
+
+// 标题取 title 优先（上游 OpmlReader 先看 title，没有才用 text），再退到 xmlUrl
+assert.strictEqual(OpmlDocument.readDocument(
+  '<opml version="2.0"><body><outline text="Text" title="Title" xmlUrl="u"/></body></opml>')[0].text, 'Title');
+assert.strictEqual(OpmlDocument.readDocument(
+  '<opml version="2.0"><body><outline text="Text" xmlUrl="u"/></body></opml>')[0].text, 'Text');
+assert.strictEqual(OpmlDocument.readDocument(
+  '<opml version="2.0"><body><outline xmlUrl="u"/></body></opml>')[0].text, 'u');
+// 没有 xmlUrl 的 outline（文件夹分组标题）跳过
+assert.strictEqual(OpmlDocument.readDocument(
+  '<opml version="2.0"><body><outline text="folder"/><outline text="f" xmlUrl="u"/></body></opml>').length, 1);
+// 嵌套 outline（文件夹里的订阅）照样读得出来
+const opmlNested = OpmlDocument.readDocument(
+  '<opml version="2.0"><body><outline text="Cat"><outline text="inner" xmlUrl="https://x/i.xml"/></outline></body></opml>');
+assert.strictEqual(opmlNested.length, 1);
+assert.strictEqual(opmlNested[0].xmlUrl, 'https://x/i.xml');
+// opml 树之外的 outline 不算（上游 isInOpml 闸门）
+assert.strictEqual(OpmlDocument.readDocument('<rss><outline xmlUrl="u"/></rss>').length, 0);
+// BOM（解码后是 U+FEFF）不能把首标签读坏
+assert.strictEqual(OpmlDocument.readDocument('\uFEFF' + opmlXml).length, 2);
+// 编码嗅探（对照上游 BOMInputStream.getBOM()）
+assert.strictEqual(OpmlDocument.detectCharset(new Uint8Array([0xEF, 0xBB, 0xBF, 0x3C])), 'utf-8');
+assert.strictEqual(OpmlDocument.detectCharset(new Uint8Array([0xFF, 0xFE, 0x3C, 0x00])), 'utf-16le');
+assert.strictEqual(OpmlDocument.detectCharset(new Uint8Array([0xFE, 0xFF, 0x00, 0x3C])), 'utf-16be');
+assert.strictEqual(OpmlDocument.detectCharset(new Uint8Array([0x3C, 0x6F])), '');
+// 空文档 / 垃圾文本：解析出 0 条而不是抛异常（页面据此提示「读不出条目」）
+assert.strictEqual(OpmlDocument.readDocument('').length, 0);
+assert.strictEqual(OpmlDocument.readDocument('not xml at all').length, 0);
+
+// ---- 整库备份的版本闸门（SqliteHeader：SQLite 头 offset 60 = user_version）----
+const { SqliteHeader } = require('./utils/SqliteHeader.js');
+function sqliteHeader(userVersion) {
+  const bytes = new Uint8Array(100);
+  const magic = 'SQLite format 3\u0000';
+  for (let i = 0; i < magic.length; i++) { bytes[i] = magic.charCodeAt(i); }
+  bytes[60] = (userVersion >>> 24) & 0xFF;
+  bytes[61] = (userVersion >>> 16) & 0xFF;
+  bytes[62] = (userVersion >>> 8) & 0xFF;
+  bytes[63] = userVersion & 0xFF;
+  return bytes;
+}
+const headerV2 = SqliteHeader.parse(sqliteHeader(2));
+assert.strictEqual(headerV2.isSqlite, true);
+assert.strictEqual(headerV2.userVersion, 2);
+assert.strictEqual(SqliteHeader.parse(sqliteHeader(0)).userVersion, 0);
+assert.strictEqual(SqliteHeader.parse(sqliteHeader(300)).userVersion, 300);
+// 非 SQLite（OPML 文本 / 太短的文件）：不是数据库，导入时要拒绝
+const notDb = new Uint8Array(100);
+for (let i = 0; i < 20; i++) { notDb[i] = '<opml version="2.0">'.charCodeAt(i % 19); }
+assert.strictEqual(SqliteHeader.parse(notDb).isSqlite, false);
+assert.strictEqual(SqliteHeader.parse(notDb).userVersion, 0);
+assert.strictEqual(SqliteHeader.parse(new Uint8Array([0x53, 0x51])).isSqlite, false);
+assert.strictEqual(SqliteHeader.readInt32Be(sqliteHeader(258), 60), 258);
+assert.strictEqual(SqliteHeader.readInt32Be(new Uint8Array([0, 0, 1, 0]), 0), 256);
 
 console.log('RUNTIME PURE LOGIC TESTS PASSED');
 '@ | Set-Content $runJs -Encoding UTF8

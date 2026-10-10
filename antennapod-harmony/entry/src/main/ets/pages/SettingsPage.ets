@@ -347,8 +347,10 @@ export struct SettingsPage {
                 router.pushUrl({ url: 'pages/StatsPage' });
               })
               this.rowDivider()
-              this.navRow($r('sys.symbol.doc_text'), $r('app.string.setting_opml'), '', () => {
-                router.pushUrl({ url: 'pages/OpmlPage' });
+              // 备份与恢复（上游 preferences.xml 的 prefScreenImportExport 入口）：
+              // 整库导出/导入 + OPML 导出/导入都在这一屏
+              this.navRow($r('sys.symbol.externaldrive_fill'), $r('app.string.import_export_pref'), '', () => {
+                router.pushUrl({ url: 'pages/ImportExportPage' });
               })
               this.rowDivider()
               this.tapRow($r('sys.symbol.trash'), $r('app.string.setting_clear_cache'), () => {

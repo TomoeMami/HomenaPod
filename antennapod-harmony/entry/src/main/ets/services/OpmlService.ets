@@ -1,28 +1,46 @@
 // Port of: storage/importexport OpmlImporter/OpmlExporter
+import fs from '@ohos.file.fs';
+import { util } from '@kit.ArkTS';
 import { Feed } from '../model/Feed';
+import { FeedState } from '../model/Enums';
 import { SubscriptionService } from './SubscriptionService';
-import { XmlReader, XmlTag } from '../parser/XmlReader';
+import { OpmlDocument, OpmlOutline } from '../parser/OpmlDocument';
 import { Logger } from '../utils/Logger';
 
 const TAG: string = 'OpmlService';
 
-export interface OpmlOutline {
-  text: string;
-  xmlUrl: string;
-  htmlUrl: string;
-}
+/** OPML head 里的文档标题（上游写 "AntennaPod Subscriptions"） */
+const OPML_TITLE: string = 'HomenaPod Subscriptions';
 
 export class OpmlService {
-  static exportOpml(feeds: Feed[]): string {
-    let body: string = '<?xml version="1.0" encoding="UTF-8"?>\n<opml version="2.0">\n<head><title>HomenaPod Subscriptions</title></head>\n<body>\n';
+  /** 默认导出文件名 `homenapod-feeds-yyyy-MM-dd.opml` */
+  static defaultExportFileName(date: Date): string {
+    return OpmlDocument.defaultFileName(date);
+  }
+
+  /**
+   * 导出订阅为 OPML 文本（对照上游 `OpmlWriter.writeDocument` + `ImportExportPreferencesFragment.writeToStream`）：
+   * 只写**已订阅**（`Feed.STATE_SUBSCRIBED`）的源——上游 OpmlWriter 逐条 `if (feed.getState() != STATE_SUBSCRIBED) continue`。
+   */
+  static exportOpml(feeds: Feed[], created: Date): string {
+    const outlines: OpmlOutline[] = [];
     for (const feed of feeds) {
-      const title: string = OpmlService.escapeXml(feed.getTitle());
-      const xmlUrl: string = OpmlService.escapeXml(feed.downloadUrl);
-      const htmlUrl: string = OpmlService.escapeXml(feed.link);
-      body += `  <outline text="${title}" title="${title}" type="rss" xmlUrl="${xmlUrl}" htmlUrl="${htmlUrl}"/>\n`;
+      if (feed.state !== FeedState.STATE_SUBSCRIBED) {
+        continue;
+      }
+      outlines.push({
+        text: feed.getTitle(),
+        xmlUrl: feed.downloadUrl,
+        htmlUrl: feed.link,
+        type: feed.type
+      });
     }
-    body += '</body>\n</opml>\n';
-    return body;
+    return OpmlDocument.writeDocument(outlines, OPML_TITLE, created);
+  }
+
+  /** 解析 OPML 文本为条目列表（对照上游 OpmlReader） */
+  static parseOutlines(xml: string): OpmlOutline[] {
+    return OpmlDocument.readDocument(xml);
   }
 
   /**
@@ -37,30 +55,7 @@ export class OpmlService {
    */
   static async importOpml(xml: string, inboxBaseline: number = 0): Promise<Feed[]> {
     const baseline: number = inboxBaseline > 0 ? inboxBaseline : Date.now();
-    const outlines: OpmlOutline[] = [];
-    let currentOutline: OpmlOutline | undefined = undefined;
-    XmlReader.parse(xml, {
-      onStart: (tag: XmlTag): void => {
-        if (tag.name.toLowerCase() === 'outline') {
-          const xmlUrl: string = tag.getAttribute('xmlUrl');
-          if (xmlUrl !== '') {
-            currentOutline = {
-              text: tag.getAttribute('text') !== '' ? tag.getAttribute('text') : tag.getAttribute('title'),
-              xmlUrl: xmlUrl,
-              htmlUrl: tag.getAttribute('htmlUrl')
-            };
-          }
-        }
-      },
-      onEnd: (name: string): void => {
-        if (name.toLowerCase() === 'outline' && currentOutline !== undefined) {
-          outlines.push(currentOutline);
-          currentOutline = undefined;
-        }
-      },
-      onText: (text: string): void => undefined,
-      onAttribute: (name: string, value: string): void => undefined
-    });
+    const outlines: OpmlOutline[] = OpmlService.parseOutlines(xml);
     const imported: Feed[] = [];
     for (const outline of outlines) {
       try {
@@ -76,12 +71,36 @@ export class OpmlService {
     return imported;
   }
 
-  private static escapeXml(value: string): string {
-    return value
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;')
-      .replace(/'/g, '&apos;');
+  /**
+   * 读取用户选择的 OPML 文件（对照上游 `OpmlImportActivity.startImport`）：
+   * 先按 BOM 判断 UTF-8 / UTF-16，再解码并去掉残留 BOM——中文播客名常见 UTF-8 BOM，
+   * 不解码就会把 `<opml>` 首标签读坏、整份文件解析出 0 条。
+   */
+  static async readFromUri(uri: string): Promise<string> {
+    const file: fs.File = fs.openSync(uri, fs.OpenMode.READ_ONLY);
+    try {
+      const stat: fs.Stat = fs.statSync(file.fd);
+      if (stat.size <= 0) {
+        throw new Error('OPML file is empty');
+      }
+      const buffer: ArrayBuffer = new ArrayBuffer(stat.size);
+      fs.readSync(file.fd, buffer);
+      const bytes: Uint8Array = new Uint8Array(buffer);
+      const charset: string = OpmlDocument.detectCharset(bytes);
+      const decoder: util.TextDecoder = util.TextDecoder.create(charset === '' ? 'utf-8' : charset);
+      return OpmlDocument.stripBom(decoder.decodeToString(bytes));
+    } finally {
+      fs.closeSync(file);
+    }
+  }
+
+  /** 把 OPML 文本写入用户选择的目标（DocumentViewPicker.save 返回的 uri） */
+  static async writeToUri(uri: string, xml: string): Promise<void> {
+    const file: fs.File = fs.openSync(uri, fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE | fs.OpenMode.TRUNC);
+    try {
+      fs.writeSync(file.fd, xml);
+    } finally {
+      fs.closeSync(file);
+    }
   }
 }

@@ -1,14 +1,12 @@
 import router from '@ohos.router';
 import { picker } from '@kit.CoreFileKit';
-import fs from '@ohos.file.fs';
 import common from '@ohos.app.ability.common';
-import { util } from '@kit.ArkTS';
 import { Feed } from '../model/Feed';
 import { FeedRepository } from '../db/repositories/FeedRepository';
 import { OpmlService } from '../services/OpmlService';
 import { SubscriptionService } from '../services/SubscriptionService';
 import { RefreshService } from '../services/RefreshService';
-import { XmlReader, XmlTag } from '../parser/XmlReader';
+import { OpmlOutline } from '../parser/OpmlDocument';
 import { EventHub, EventType, FeedUpdateData } from '../events/EventHub';
 import { Logger } from '../utils/Logger';
 import { MessageHelper } from '../utils/MessageHelper';
@@ -20,12 +18,20 @@ import { OverflowButton } from '../components/OverflowButton';
 
 const TAG: string = 'OpmlPage';
 
-/** OPML 条目（对齐上游 OpmlElement：text / xmlUrl / htmlUrl） */
+/** OPML 条目（对齐上游 OpmlElement：text / xmlUrl / htmlUrl）+ 勾选态 */
 interface OpmlSelectionItem {
   text: string;
   xmlUrl: string;
   htmlUrl: string;
   selected: boolean;
+}
+
+/**
+ * 本页的路由参数：「备份与恢复 → OPML 导入」已用系统选择器选好文件，
+ * 通过参数把已授权的 uri 带进来（上游 `OpmlImportActivity` 的 `getIntent().getData()`）。
+ */
+export interface OpmlImportParams {
+  opmlUri: string;
 }
 
 /**
@@ -39,6 +45,18 @@ struct OpmlPage {
   @State items: OpmlSelectionItem[] = [];
   @State message: string = '';
   @State loading: boolean = false;
+
+  /**
+   * 从「备份与恢复 → OPML 导入」带进来的文件：直接解析成勾选列表
+   * （本页自己也有导入入口，见空态那行「导入 OPML」）。
+   */
+  aboutToAppear(): void {
+    const params: OpmlImportParams = router.getParams() as OpmlImportParams;
+    const uri: string = params === undefined || params === null ? '' : params.opmlUri;
+    if (uri !== undefined && uri !== null && uri !== '') {
+      this.loadFile(uri);
+    }
+  }
 
   build() {
     Stack({ alignContent: Alignment.Center }) {
@@ -262,21 +280,37 @@ struct OpmlPage {
     this.loading = true;
     try {
       const context = getContext(this) as common.UIAbilityContext;
-      const documentPicker = new picker.DocumentViewPicker(context);
-      const result: string[] = await documentPicker.select();
+      const options: picker.DocumentSelectOptions = new picker.DocumentSelectOptions();
+      options.maxSelectNumber = 1;
+      const result: string[] = await new picker.DocumentViewPicker(context).select(options);
       if (result.length === 0) {
         return;
       }
-      const file = fs.openSync(result[0], fs.OpenMode.READ_ONLY);
-      const stat = fs.statSync(file.fd);
-      const buffer = new ArrayBuffer(stat.size);
-      fs.readSync(file.fd, buffer);
-      fs.closeSync(file.fd);
-      const decoder: util.TextDecoder = util.TextDecoder.create();
-      const xml: string = decoder.decodeToString(new Uint8Array(buffer));
-      this.items = OpmlPage.parseOutlines(xml);
-      this.message = getContext(this).resourceManager.getStringSync($r('app.string.opml_imported')) + this.items.length;
+      await this.loadFile(result[0]);
     } catch (error) {
+      this.message = (error as Error).message;
+    } finally {
+      this.loading = false;
+    }
+  }
+
+  /**
+   * 解析指定 OPML 文件为勾选列表：编码按 BOM 判定（上游 BOMInputStream），
+   * 解析完给出条数提示；一条都没解析出来时给出「读不出条目」的提示而不是静默留空。
+   */
+  private async loadFile(uri: string): Promise<void> {
+    this.loading = true;
+    try {
+      const xml: string = await OpmlService.readFromUri(uri);
+      this.items = OpmlPage.toSelection(OpmlService.parseOutlines(xml));
+      const context = getContext(this) as common.UIAbilityContext;
+      if (this.items.length === 0) {
+        this.message = context.resourceManager.getStringSync($r('app.string.opml_reader_error'));
+        return;
+      }
+      this.message = context.resourceManager.getStringSync($r('app.string.opml_imported')) + this.items.length;
+    } catch (error) {
+      Logger.warn(TAG, 'read opml failed: ' + (error as Error).message);
       this.message = (error as Error).message;
     } finally {
       this.loading = false;
@@ -336,23 +370,24 @@ struct OpmlPage {
     }
   }
 
+  /**
+   * 导出订阅为 OPML（对齐上游 `prefOpmlExport` → `OpmlWriter.writeDocument`）：
+   * 文件名带日期（上游 `antennapod-feeds-yyyy-MM-dd.opml` 同款），AppBar 右上角的导出动作
+   * 是上游没有的便捷入口（上游只在设置里导出）。
+   */
   async exportOpml(): Promise<void> {
     this.loading = true;
     try {
       const context = getContext(this) as common.UIAbilityContext;
-      const feeds: Feed[] = await FeedRepository.listSubscribed();
-      const xml: string = OpmlService.exportOpml(feeds);
       const options = new picker.DocumentSaveOptions();
-      options.newFileNames = ['homenapod-opml.xml'];
-      const documentPicker = new picker.DocumentViewPicker(context);
-      const result: string[] = await documentPicker.save(options);
+      options.newFileNames = [OpmlService.defaultExportFileName(new Date())];
+      const result: string[] = await new picker.DocumentViewPicker(context).save(options);
       if (result.length === 0) {
         return;
       }
-      const file = fs.openSync(result[0], fs.OpenMode.READ_WRITE | fs.OpenMode.CREATE);
-      fs.writeSync(file.fd, xml);
-      fs.closeSync(file.fd);
-      this.message = getContext(this).resourceManager.getStringSync($r('app.string.opml_exported')) + feeds.length;
+      const feeds: Feed[] = await FeedRepository.listSubscribed();
+      await OpmlService.writeToUri(result[0], OpmlService.exportOpml(feeds, new Date()));
+      this.message = context.resourceManager.getStringSync($r('app.string.opml_exported')) + feeds.length;
     } catch (error) {
       this.message = (error as Error).message;
     } finally {
@@ -360,33 +395,17 @@ struct OpmlPage {
     }
   }
 
-  static parseOutlines(xml: string): OpmlSelectionItem[] {
-    const outlines: OpmlSelectionItem[] = [];
-    let current: OpmlSelectionItem | undefined = undefined;
-    XmlReader.parse(xml, {
-      onStart: (tag: XmlTag): void => {
-        if (tag.name.toLowerCase() === 'outline') {
-          const xmlUrl: string = tag.getAttribute('xmlUrl');
-          if (xmlUrl !== '') {
-            const text: string = tag.getAttribute('text') !== '' ? tag.getAttribute('text') : tag.getAttribute('title');
-            current = {
-              text: text !== '' ? text : xmlUrl,
-              xmlUrl: xmlUrl,
-              htmlUrl: tag.getAttribute('htmlUrl'),
-              selected: false
-            };
-          }
-        }
-      },
-      onEnd: (name: string): void => {
-        if (name.toLowerCase() === 'outline' && current !== undefined) {
-          outlines.push(current);
-          current = undefined;
-        }
-      },
-      onText: (text: string): void => undefined,
-      onAttribute: (name: string, value: string): void => undefined
-    });
-    return outlines;
+  /** 解析结果 → 勾选列表（勾选态默认全不选，与上游 ListView CHOICE_MODE_MULTIPLE 初始态一致） */
+  static toSelection(outlines: OpmlOutline[]): OpmlSelectionItem[] {
+    const items: OpmlSelectionItem[] = [];
+    for (const outline of outlines) {
+      items.push({
+        text: outline.text,
+        xmlUrl: outline.xmlUrl,
+        htmlUrl: outline.htmlUrl,
+        selected: false
+      });
+    }
+    return items;
   }
 }

@@ -1843,6 +1843,102 @@
     {
       "name": "about_copyright",
       "value": "© 2026 HomenaPod 贡献者"
+    },
+    {
+      "name": "import_export_pref",
+      "value": "备份与恢复"
+    },
+    {
+      "name": "import_export_summary",
+      "value": "把订阅与队列迁移到另一台设备"
+    },
+    {
+      "name": "settings_category_database",
+      "value": "数据库"
+    },
+    {
+      "name": "settings_category_opml",
+      "value": "OPML"
+    },
+    {
+      "name": "database_export_label",
+      "value": "数据库导出"
+    },
+    {
+      "name": "database_export_summary",
+      "value": "把订阅、已听单集与队列迁移到另一台设备上的 HomenaPod"
+    },
+    {
+      "name": "database_import_label",
+      "value": "数据库导入"
+    },
+    {
+      "name": "database_import_summary",
+      "value": "从另一台设备导入 HomenaPod 数据库"
+    },
+    {
+      "name": "database_import_warning",
+      "value": "导入数据库会替换当前的全部订阅与播放记录，建议先把当前数据库导出留底。确定要替换吗？"
+    },
+    {
+      "name": "opml_export_label",
+      "value": "OPML 导出"
+    },
+    {
+      "name": "opml_export_summary",
+      "value": "把订阅源迁移到其它播客应用"
+    },
+    {
+      "name": "opml_import_label",
+      "value": "OPML 导入"
+    },
+    {
+      "name": "opml_import_summary",
+      "value": "从其它播客应用导入订阅源"
+    },
+    {
+      "name": "export_success_title",
+      "value": "导出成功"
+    },
+    {
+      "name": "export_error_label",
+      "value": "导出失败"
+    },
+    {
+      "name": "import_error_label",
+      "value": "导入失败"
+    },
+    {
+      "name": "import_not_a_database",
+      "value": "这个文件不是 HomenaPod 的数据库备份。"
+    },
+    {
+      "name": "import_no_downgrade",
+      "value": "这个数据库由更新版本的 HomenaPod 导出，当前版本还读不了这个文件。"
+    },
+    {
+      "name": "successful_import_label",
+      "value": "导入成功"
+    },
+    {
+      "name": "import_ok",
+      "value": "请按「确定」重启 HomenaPod"
+    },
+    {
+      "name": "opml_reader_error",
+      "value": "这个 OPML 文件里没有可导入的订阅源。"
+    },
+    {
+      "name": "please_wait",
+      "value": "请稍候…"
+    },
+    {
+      "name": "ok_label",
+      "value": "确定"
+    },
+    {
+      "name": "no_label",
+      "value": "否"
     }
   ]
 }
