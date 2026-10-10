@@ -50,6 +50,10 @@ struct PlayerPage {
   @State customMinutes: string = '';
   @State chapterEndToggle: boolean = false;
   @State fadeToggle: boolean = false;
+  /** 摇一摇重置倒计时（上游 SleepTimerDialog「Shake to reset」，默认开） */
+  @State shakeToResetToggle: boolean = true;
+  /** 结束前震动提醒（上游 SleepTimerDialog「Vibrate shortly before end」，默认关） */
+  @State vibrateToggle: boolean = false;
   @State favorite: boolean = false;
   @State coverSize: number = 240;
   /** 封面地址（单集封面 / 播客封面，来自当前播放对象） */
@@ -641,6 +645,38 @@ struct PlayerPage {
       }
       .width('100%')
 
+      // 摇一摇重置倒计时（上游 SleepTimerDialog「Shake to reset」，默认开）：
+      // 立即落盘并即时生效 —— 定时已在跑时关掉开关，要马上释放加速度计
+      Row({ space: DesignTokens.SPACE_S }) {
+        Text($r('app.string.sleep_timer_shake_to_reset'))
+          .fontSize(DesignTokens.FONT_PARAGRAPH)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+        Toggle({ type: ToggleType.Switch, isOn: this.shakeToResetToggle })
+          .selectedColor($r('app.color.primary'))
+          .onChange((isOn: boolean) => {
+            this.shakeToResetToggle = isOn;
+            UserPreferences.setSleepShakeToReset(isOn);
+            this.syncShakeListener();
+          })
+      }
+      .width('100%')
+
+      // 结束前震动提醒（上游 SleepTimerDialog「Vibrate shortly before end」，默认关）
+      Row({ space: DesignTokens.SPACE_S }) {
+        Text($r('app.string.sleep_timer_vibrate'))
+          .fontSize(DesignTokens.FONT_PARAGRAPH)
+          .fontColor($r('app.color.text_primary'))
+          .layoutWeight(1)
+        Toggle({ type: ToggleType.Switch, isOn: this.vibrateToggle })
+          .selectedColor($r('app.color.primary'))
+          .onChange((isOn: boolean) => {
+            this.vibrateToggle = isOn;
+            UserPreferences.setSleepVibrate(isOn);
+          })
+      }
+      .width('100%')
+
       Row({ space: DesignTokens.SPACE_M }) {
         Button($r('app.string.sleep_timer_stop'))
           .layoutWeight(1)
@@ -692,6 +728,8 @@ struct PlayerPage {
     this.repeatMode = UserPreferences.getRepeatMode();
     this.chapterEndToggle = UserPreferences.getSleepStopAtChapterEnd();
     this.fadeToggle = UserPreferences.getSleepFadeOut();
+    this.shakeToResetToggle = UserPreferences.getSleepShakeToReset();
+    this.vibrateToggle = UserPreferences.getSleepVibrate();
     try {
       const info: display.Display = display.getDefaultDisplaySync();
       const width: number = px2vp(info.width) - 64;
@@ -722,11 +760,8 @@ struct PlayerPage {
         this.checkChapterEndSleep();
       }, 1000);
     }
-    if (SleepTimer.isActive()) {
-      ShakeDetector.start(() => {
-        this.restartSleepTimer();
-      });
-    }
+    // 摇一摇重置倒计时：只在「开关打开 且 定时器活跃」时订阅加速度计（见 syncShakeListener）
+    this.syncShakeListener();
   }
 
   aboutToDisappear(): void {
@@ -906,21 +941,41 @@ struct PlayerPage {
     UserPreferences.setSleepFadeOut(this.fadeToggle);
     this.showSleepSheet = false;
     SleepTimer.start(minutes, () => {
-      PlayerManager.pause();
+      this.onSleepTimerExpire();
     }, this.chapterEndToggle, this.fadeToggle);
-    // 摇一摇重置倒计时（仅在定时器活跃期间监听加速度计）
-    ShakeDetector.start(() => {
-      this.restartSleepTimer();
-    });
+    // 摇一摇重置倒计时（仅在开关打开且定时器活跃时监听加速度计）
+    this.syncShakeListener();
   }
 
   /** 摇一摇：按上次选择的时长重新计时 */
   restartSleepTimer(): void {
     const minutes: number = UserPreferences.getSleepTimerMinutes();
     SleepTimer.start(minutes, () => {
-      PlayerManager.pause();
+      this.onSleepTimerExpire();
     }, this.chapterEndToggle, this.fadeToggle);
     this.sleepRemainingText = getContext(this).resourceManager.getStringSync($r('app.string.sleep_timer_reset'));
+  }
+
+  /**
+   * 睡眠定时到点：**先停摇一摇监听再暂停播放**。
+   *
+   * 定时器自然到点后页面不会重建，若不在这里停掉，加速度计会一直订阅到用户手动点「停止睡眠定时」
+   * 或离开播放页 —— 白耗电，也与「只在定时活跃期间监听」的语义不符。
+   */
+  private onSleepTimerExpire(): void {
+    ShakeDetector.stop();
+    PlayerManager.pause();
+  }
+
+  /** 按「摇一摇重置」开关 + 定时器状态，同步加速度计订阅（开关关掉时立即释放传感器） */
+  private syncShakeListener(): void {
+    if (this.shakeToResetToggle && SleepTimer.isActive()) {
+      ShakeDetector.start(() => {
+        this.restartSleepTimer();
+      });
+      return;
+    }
+    ShakeDetector.stop();
   }
 
   /** 播放位置文本：DurationUtils.format 对 0 返回空串，这里补成 0:00，避免出现 "PAUSED   / 0:05" */

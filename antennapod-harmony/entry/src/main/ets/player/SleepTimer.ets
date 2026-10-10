@@ -1,11 +1,14 @@
 // Port of: playback/service/internal/{SleepTimer,EpisodeSleepTimer,ClockSleepTimer}.java
 import vibrator from '@ohos.vibrator';
 import { EventHub, EventType, SleepTimerData } from '../events/EventHub';
+import { UserPreferences } from '../prefs/UserPreferences';
 import { Logger } from '../utils/Logger';
 
 const TAG: string = 'SleepTimer';
 /** 渐弱音量窗口：最后 30 秒 */
 const FADE_WINDOW_MS: number = 30000;
+/** 结束前震动提醒的提前量（上游文案「Vibrate shortly before end」，与渐弱窗口同长） */
+const VIBRATE_LEAD_MS: number = 30000;
 
 export class SleepTimer {
   private static timerId: number = -1;
@@ -14,6 +17,8 @@ export class SleepTimer {
   private static stopAtChapterEnd: boolean = false;
   private static fadeOut: boolean = false;
   private static pendingChapterEnd: boolean = false;
+  /** 本次定时是否已发出「结束前震动」（整场只提醒一次） */
+  private static vibrated: boolean = false;
   private static onExpire: (() => void) | undefined = undefined;
   private static fadeHandler: ((volume: number) => void) | undefined = undefined;
 
@@ -33,6 +38,7 @@ export class SleepTimer {
     SleepTimer.remainingMs = minutes * 60 * 1000;
     SleepTimer.durationMs = SleepTimer.remainingMs;
     SleepTimer.pendingChapterEnd = false;
+    SleepTimer.vibrated = false;
     const deadline: number = Date.now() + SleepTimer.remainingMs;
     SleepTimer.timerId = setInterval(() => {
       SleepTimer.remainingMs = deadline - Date.now();
@@ -48,18 +54,18 @@ export class SleepTimer {
         SleepTimer.fire();
         return;
       }
+      SleepTimer.applyVibrateWarning();
       SleepTimer.applyFade();
       SleepTimer.publishTick();
     }, 1000);
     SleepTimer.publishTick();
   }
 
-  /** 到点执行：恢复音量 + 震动 + 回调，然后清理 */
+  /** 到点执行：恢复音量 + 回调，然后清理（震动提醒由 applyVibrateWarning 在结束前发出） */
   static fire(): void {
     const callback: (() => void) | undefined = SleepTimer.onExpire;
     SleepTimer.clearTimer();
     SleepTimer.restoreVolume();
-    SleepTimer.vibrate();
     if (callback !== undefined) {
       callback();
     }
@@ -130,6 +136,24 @@ export class SleepTimer {
     if (SleepTimer.fadeHandler !== undefined) {
       SleepTimer.fadeHandler(1.0);
     }
+  }
+
+  /**
+   * 结束前震动提醒（上游 SleepTimerDialog 的「Vibrate shortly before end」，默认关）：
+   * 倒计时进入最后 `VIBRATE_LEAD_MS` 时震一次，整场定时只提醒一次。
+   *
+   * 取值在窗口内才读一次偏好（最多 30 次/场），因此用户在倒计时中途打开开关也能立刻生效。
+   */
+  private static applyVibrateWarning(): void {
+    if (SleepTimer.vibrated || SleepTimer.remainingMs > VIBRATE_LEAD_MS || SleepTimer.remainingMs <= 0) {
+      return;
+    }
+    if (!UserPreferences.getSleepVibrate()) {
+      return;
+    }
+    SleepTimer.vibrated = true;
+    Logger.info(TAG, 'vibrate warning, remainingMs=' + SleepTimer.remainingMs.toString());
+    SleepTimer.vibrate();
   }
 
   private static vibrate(): void {

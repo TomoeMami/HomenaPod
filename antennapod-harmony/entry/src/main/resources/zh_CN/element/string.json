@@ -533,6 +533,14 @@
       "value": "渐弱音量"
     },
     {
+      "name": "sleep_timer_shake_to_reset",
+      "value": "摇一摇重置倒计时"
+    },
+    {
+      "name": "sleep_timer_vibrate",
+      "value": "结束前震动提醒"
+    },
+    {
       "name": "sleep_timer_remaining",
       "value": "睡眠定时："
     },
@@ -1778,7 +1786,7 @@
     },
     {
       "name": "about_text_privacy_permissions",
-      "value": "已声明权限：网络访问、网络状态、后台播放、振动、加速度计（摇一摇跳过）。不申请定位、通讯录、相机或相册权限。"
+      "value": "已声明权限：网络访问、网络状态（仅 Wi-Fi 自动下载）、后台播放、加速度计（睡眠定时期间摇一摇重置倒计时）、振动（睡眠定时结束前提醒，默认关闭）。全部为普通级权限，安装时由系统自动授予，不会弹窗索要；不申请定位、通讯录、相机或相册权限。"
     },
     {
       "name": "about_text_credits",

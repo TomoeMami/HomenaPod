@@ -533,6 +533,14 @@
       "value": "Fade out volume"
     },
     {
+      "name": "sleep_timer_shake_to_reset",
+      "value": "Shake to reset"
+    },
+    {
+      "name": "sleep_timer_vibrate",
+      "value": "Vibrate shortly before end"
+    },
+    {
       "name": "sleep_timer_remaining",
       "value": "Sleep timer:"
     },
@@ -1778,7 +1786,7 @@
     },
     {
       "name": "about_text_privacy_permissions",
-      "value": "Declared permissions: network access, network state, background audio playback, vibration and accelerometer (shake to skip). No location, contacts, camera or photo access is requested."
+      "value": "Declared permissions: network access, network state (Wi-Fi-only auto download), background audio playback, accelerometer (shake to reset the sleep timer while it runs) and vibration (a short alert shortly before the sleep timer ends, off by default). All of them are normal-level permissions granted automatically at install - the app never shows a permission prompt. No location, contacts, camera or photo access is requested."
     },
     {
       "name": "about_text_credits",

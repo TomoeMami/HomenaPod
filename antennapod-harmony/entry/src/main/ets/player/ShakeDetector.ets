@@ -23,6 +23,8 @@ export class ShakeDetector {
         ShakeDetector.handle(data);
       }, { interval: 200000000 });
       ShakeDetector.listening = true;
+      // 订阅/释放都留一条日志：加速度计只在睡眠定时活跃期间监听，出问题（例如开关失效）好排查
+      Logger.info(TAG, 'accelerometer subscribed');
     } catch (error) {
       Logger.warn(TAG, 'accelerometer unavailable: ' + (error as Error).message);
     }
@@ -39,6 +41,7 @@ export class ShakeDetector {
       Logger.warn(TAG, 'off failed: ' + (error as Error).message);
     }
     ShakeDetector.listening = false;
+    Logger.info(TAG, 'accelerometer released');
   }
 
   static isListening(): boolean {

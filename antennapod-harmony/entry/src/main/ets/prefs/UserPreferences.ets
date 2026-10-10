@@ -482,6 +482,26 @@ export class UserPreferences {
     UserPreferences.getPrefs().flush();
   }
 
+  /** 摇一摇重置睡眠定时倒计时（上游 SleepTimerPreferences.shakeToReset，默认开） */
+  static getSleepShakeToReset(): boolean {
+    return UserPreferences.getPrefs().getSync('prefSleepShakeToReset', true) as boolean;
+  }
+
+  static setSleepShakeToReset(value: boolean): void {
+    UserPreferences.getPrefs().putSync('prefSleepShakeToReset', value);
+    UserPreferences.getPrefs().flush();
+  }
+
+  /** 结束前震动提醒（上游 SleepTimerPreferences.vibrate，默认关） */
+  static getSleepVibrate(): boolean {
+    return UserPreferences.getPrefs().getSync('prefSleepVibrate', false) as boolean;
+  }
+
+  static setSleepVibrate(value: boolean): void {
+    UserPreferences.getPrefs().putSync('prefSleepVibrate', value);
+    UserPreferences.getPrefs().flush();
+  }
+
   /** 主题：0=跟随系统 1=浅色 2=深色 */
   static setThemeMode(value: number): void {
     UserPreferences.setTheme(value);
