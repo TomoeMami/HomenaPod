@@ -21,8 +21,8 @@
     </filter>
   </defs>
 
-  <!-- 底色：满幅圆角方形（贴边，无外投影，避免上下漏黑边） -->
-  <rect width="1024" height="1024" rx="220" ry="220" fill="url(#bgGradient)"/>
+  <!-- 底色：满幅正方形（贴边、不自绘圆角，圆角交由系统图标蒙版绘制） -->
+  <rect width="1024" height="1024" fill="url(#bgGradient)"/>
 
   <!-- 声波：三层同心圆环 -->
   <circle cx="512" cy="480" r="200" fill="none" stroke="url(#waveGradient)" stroke-width="56" opacity="0.9"/>
