@@ -1,12 +1,5 @@
 <svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
   <defs>
-    <!-- 底色：蓝 → 深蓝 → 紫 的对角渐变 -->
-    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
-      <stop offset="0%" stop-color="#3498DB"/>
-      <stop offset="50%" stop-color="#0056B3"/>
-      <stop offset="100%" stop-color="#4A00E0"/>
-    </linearGradient>
-
     <!-- 声波：水平方向由弱到强再到弱的白色渐变 -->
     <linearGradient id="waveGradient" x1="0%" y1="0%" x2="100%" y2="0%">
       <stop offset="0%" stop-color="#FFFFFF" stop-opacity="0.4"/>
@@ -21,8 +14,12 @@
     </filter>
   </defs>
 
-  <!-- 底色：满幅正方形（贴边、不自绘圆角，圆角交由系统图标蒙版绘制） -->
-  <rect width="1024" height="1024" fill="url(#bgGradient)"/>
+  <!--
+    底色：满幅正方形纯色（贴边、不自绘圆角，圆角交由系统图标蒙版绘制）。
+    与分层图标（background.png / foreground.png + layered_image.json）保持同一套视觉，
+    本文件供 startWindowIcon（启动页）与应用内 Image($r('app.media.app_icon')) 使用 —— 这两处不走系统蒙版。
+  -->
+  <rect width="1024" height="1024" fill="#0056B3"/>
 
   <!-- 声波：三层同心圆环 -->
   <circle cx="512" cy="480" r="200" fill="none" stroke="url(#waveGradient)" stroke-width="56" opacity="0.9"/>

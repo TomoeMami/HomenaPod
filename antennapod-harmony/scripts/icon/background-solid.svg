@@ -1,0 +1,8 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <!--
+    背景层（background.png）默认方案：纯色
+    - 1024×1024、PNG、完全不透明、无其他图形、不自绘圆角、不留内间距
+    - 依据上架 FAQ：「背景图需为纯色（不能透明且不能包含其他图形）」
+  -->
+  <rect width="1024" height="1024" fill="#0056B3"/>
+</svg>

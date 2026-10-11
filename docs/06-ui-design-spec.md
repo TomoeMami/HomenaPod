@@ -140,28 +140,71 @@
 > 符号名必须在本机符号表核验：`$r('sys.symbol.x')` 中不存在的名字会在 `CompileArkTS`
 > 阶段报 `Unknown resource name`（例如 `general_next_step` 并不在符号表中，已换成 `forward_end_fill`）。
 
-## 5. 应用图标（`$media:app_icon`，SVG）
+## 5. 应用图标（分层图标 `$media:layered_image` + 单层 `$media:app_icon`）
 
-文件（两处必须保持一致）：
-- `entry/src/main/resources/base/media/app_icon.svg`
-- `AppScope/resources/base/media/app_icon.svg`
+### 5.1 资源与接线
 
-构图（1024×1024，用户提供图稿，等比 2× 放大后做鸿蒙兼容化改造）：
+| 场景 | 资源 | 接线 |
+|---|---|---|
+| 桌面 / 应用列表 / 最近任务（**系统会套蒙版画圆角**） | `layered_image.json` + `background.png` + `foreground.png` | `app.json5` 的 `app.icon` 与 `module.json5` 的 `abilities[0].icon` **都**写 `"$media:layered_image"`（system 侧 module 优先，两处不一致会退回旧图） |
+| 启动页 + 应用内展示（`Image($r('app.media.app_icon'))`，**这两处不走系统蒙版**） | `app_icon.svg` | `module.json5` 的 `abilities[0].startWindowIcon = "$media:app_icon"` |
+
+`AppScope/resources/base/media/` 与 `entry/src/main/resources/base/media/` **两处同名文件必须逐字节一致**（`app_icon.svg`、`background.png`、`foreground.png`、`layered_image.json` 共 4 份 × 2）。
+
+```json
+// layered_image.json
+{
+  "layered-image": {
+    "background": "$media:background",
+    "foreground": "$media:foreground"
+  }
+}
+```
+
+### 5.2 生成方式（可复现）
+
+图源与生成脚本都在 `scripts/icon/`：
+
+```powershell
+pwsh -File scripts/icon/gen-app-icon.ps1                    # 默认 solid：纯色 #0056B3
+pwsh -File scripts/icon/gen-app-icon.ps1 -Background gradient   # 备选：原图稿的对角渐变
+```
+
+脚本用 Chrome headless 把两张层 SVG 栅格化为 **1024×1024 PNG** 写入上述两处 media 目录，并**自校验**：
+尺寸必须 1024×1024、背景四角 alpha 必须 255（完全不透明）、前景四角 alpha 必须 0（完全透明）。
+
+- `foreground.svg`：声波三环 + 人物（透明 PNG，非核心区域 100% 透明）
+- `background-solid.svg`：纯色 `#0056B3`（默认）
+- `background-gradient.svg`：蓝→深蓝→紫对角渐变（原图稿观感，默认不启用）
+
+### 5.3 上架规范依据（官方）
+
+出自官方 FAQ《[应用配置图标不符合UX设计规范要求尺寸1024px*1024px该如何解决](https://developer.huawei.com/consumer/cn/doc/harmonyos-faqs/faqs-appgallery-4)》与官方最佳实践《应用图标配置与开发》：
+
+- 「应用图标资源**必须分为前景图和背景图两层**，尺寸要求**必须为 1024px\*1024px**」
+- 「资源**不允许自行裁剪圆角**，**不允许在资源内添加内间距**」
+- 「**背景图**：作为背景层，需为**纯色**（**不能透明且不能包含其他图形**）」——故默认取纯色 `#0056B3`；设计规范另处写「纯色或简单渐变」，如后续要恢复渐变观感，用 §5.2 的 `-Background gradient` 一键切换
+- 「**前景图**：通常是应用图标的主体部分……需为**透明的 PNG** 格式」
+- API 19 起若要增强启动页，用 `startWindow` + `start_window.json`（本工程仍用简单启动页）
+
+### 5.4 构图（1024×1024，用户提供图稿，等比 2× 放大后做鸿蒙兼容化改造）
 
 | 层 | 元素 | 参数 |
 |---|---|---|
-| 底 | **正方形**（不自绘圆角）+ 蓝→紫对角渐变（**满幅贴边**） | `rect (0,0) 1024×1024`，**无 `rx`/`ry`**，渐变 `#3498DB → #0056B3 → #4A00E0`（offset 0%/50%/100%，左上→右下） |
-| 2 | 声波三环 | 圆心 `(512,480)`，`r=200/300/400`、`stroke=56`；描边用横向白渐变 `#FFFFFF` 0.4→0.9→0.4，整环 `opacity` 0.9/0.7/0.4 |
-| 3 | 人物柔影 | 同形黑色 20% + `feOffset dy=8` + `feGaussianBlur std=12` |
-| 4 | 人物主体（读作字母 **A** / 播客者） | 头 `circle (512,420) r=64`；身体 `M340 870 L512 420 L684 870`；双臂 `M390 660 Q512 780 634 660`；均 `stroke=68`、`linecap/linejoin=round`、纯白 |
+| 背景层 | **满幅正方形**（不自绘圆角、无内间距）+ 纯色 `#0056B3` | `rect (0,0) 1024×1024`，**无 `rx`/`ry`**；四角 alpha=255 |
+| 前景层 1 | 声波三环 | 圆心 `(512,480)`，`r=200/300/400`、`stroke=56`；描边用横向白渐变 `#FFFFFF` 0.4→0.9→0.4，整环 `opacity` 0.9/0.7/0.4 |
+| 前景层 2 | 人物柔影 | 同形黑色 20% + `feOffset dy=8` + `feGaussianBlur std=12` |
+| 前景层 3 | 人物主体（读作字母 **A** / 播客者） | 头 `circle (512,420) r=64`；身体 `M340 870 L512 420 L684 870`；双臂 `M390 660 Q512 780 634 660`；均 `stroke=68`、`linecap/linejoin=round`、纯白 |
 
-兼容化改造（相对用户原始图稿）：
+`app_icon.svg`（启动页/应用内用）= 上面三层压平成一张 SVG（纯色底 + 三环 + 人物），保持**直角方形**，与分层图标同色同构图。
 
-- **底色改为满幅正方形，不再自绘圆角**（官方 UX 规范：图标资源「必须为正方形图像，无需圆角，系统会为对应场景
-  自动生成遮罩裁切」；背景层「无透明区域……禁止手动圆角、透明内边距」）。旧版是 `rect (0,0) 1024×1024 rx=220`，
+### 5.5 兼容化改造（相对用户原始图稿）
+
+- **底色改为满幅正方形，不再自绘圆角**（规范：图标资源「必须为正方形图像，无需圆角，系统会为对应场景
+  自动生成遮罩裁切」；「不允许自行裁剪圆角、不允许添加内间距」）。旧版是 `rect (0,0) 1024×1024 rx=220`，
   栅格化后四角共 3.72% 像素为 `alpha=0` 的透明区（实测 512×512 中间产物：四角 `(0,0)/(511,0)/(0,511)/(511,511)`
-  全为 `(0,0,0,0)`）——既属规范里的「手动裁切圆角」禁忌项，又会在系统蒙版之上叠一层「双圆角」。
-  现改为 `rx`/`ry` 全去掉，圆角完全交由系统蒙版绘制；改后同一中间产物四角变为不透明渐变像素。
+  全为 `(0,0,0,0)`）——既属「手动裁切圆角」禁忌项，又会在系统蒙版之上叠一层「双圆角」。
+  现改为 `rx`/`ry` 全去掉，圆角完全交由系统蒙版绘制；改后同一中间产物四角变为不透明像素。
 - **去掉卡片外投影与 2% 内缩**：原图稿是「`rect (10,10) 492×492` + `feDropShadow`」的浮起卡片，
   栅格化后圆角方形四周留出透明边距、且投影在画布上下边缘被**硬裁切**——桌面图标上表现为
   **上下各漏一条黑色横带**（实测底边 `y=505…511` 为 `#000000`、alpha 28–41；顶边 alpha 4–9）。
@@ -173,15 +216,21 @@
   去掉后像素级等价；且 `mask` 引用不在基础形状的通用属性列表中。
 - 坐标整体 ×2（512 → 1024），比例不变。
 
-渲染链路（本轮实测）：
+### 5.6 上机验证（2026-10-11，模拟器 phone26 / HarmonyOS 7.0.0(26.0.0) / API 26）
 
-- `CompileResource` 会把 `app_icon.svg` **栅格化为 512×512 PNG** 再打包（HAP 内为
-  `resources/base/media/app_icon.png`，中间产物同名）；桌面图标与启动窗口用的都是这张位图。
-- 渐变 `stop-opacity` 与 `feGaussianBlur` 在栅格化阶段均正常生效（导出该 PNG 可见投影与声波渐隐）。
-- 两处 SVG 内容必须一致（内容相同，资源编译后合成同一个 `app_icon` 资源）。
+1. 构建：hvigor `assembleHap`（release）BUILD SUCCESSFUL；HAP 内 `resources/base/media/` 含
+   `background.png`、`foreground.png`、`layered_image.json`、`app_icon.svg` 四项。
+2. 安装：`hdc install -r` 未签名 HAP → `install bundle successfully`；`bm dump -n com.homenapod.app`
+   显示 `iconPath: $media:layered_image`（`iconId: 16777729`），ability 的 `startWindowIcon: $media:app_icon`。
+3. 桌面：`uitest dumpLayout` 取到图标节点 `Image [387,260][569,442]` = **182×182**，与系统自带「联系人」
+   图标 `Image [88,260][270,442]` = 182×182 **完全同尺寸**；放大截图见
+   系统蒙版圆角正常、无透明缝、无双圆角、无黑带（截图：`.dsh-out/shots62/06_desktop_solid.jpeg`、
+   `zoom_tiles.png`）。
+4. 启动窗口：`aa start` 后即时 `snapshot_display` 抓到 `startWindowIcon` = 满幅直角方形纯色图
+   （该处系统**不**套蒙版，故与桌面圆角观感不同；如需启动页也圆角，需另给一张自绘圆角图）。
+5. 资源编译会**把 media 里的 PNG 压成 512×512** 再打包（工程源文件仍是规范要求的 1024×1024）——
+   与旧版 `app_icon.svg` 栅格化成 512×512 的行为一致，属 hvigor 打包行为，不影响工程侧合规。
 
-> 遗留：模拟器上仍装着改名前的旧包 `de.danoeh.antennapod`（旧 X 图标），
-> 与本项目包 `com.homenapod.app` 并存于桌面；未卸载，需用户确认后处理。
 
 ## 6. 验收方式（本轮采用）
 
@@ -189,4 +238,5 @@
 2. hvigor `assembleHap` 编译通过（`SignHap` 因既有签名配置失败，与 UI 无关）
 3. 模拟器 `127.0.0.1:5555` 安装未签名 HAP → 启动 → 逐页截图 + UI dump 取证
 4. 浅色 / 深色两种主题各验一轮
-5. 图标验证：`aa start` 后 0.2s `snapshot_display` 抓启动窗口（大尺寸显示图标）+ 桌面截图
+5. 图标验证：`hdc install` 未签名 HAP → `uitest dumpLayout` 取图标瓦片 bounds 与系统图标比对 → 桌面截图 +
+   放大取证；`aa start` 后即时 `snapshot_display` 抓启动窗口（大尺寸显示图标）

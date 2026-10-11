@@ -1,0 +1,15 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1024" height="1024" viewBox="0 0 1024 1024">
+  <defs>
+    <!--
+      背景层备选方案：蓝 → 深蓝 → 紫 的对角渐变（原图稿观感）
+      设计规范另处写「纯色或简单渐变」，但上架 FAQ 写「背景图需为纯色」——
+      默认不启用，仅在明确选择渐变时用 gen-app-icon.ps1 -Background gradient 生成。
+    -->
+    <linearGradient id="bgGradient" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3498DB"/>
+      <stop offset="50%" stop-color="#0056B3"/>
+      <stop offset="100%" stop-color="#4A00E0"/>
+    </linearGradient>
+  </defs>
+  <rect width="1024" height="1024" fill="url(#bgGradient)"/>
+</svg>
