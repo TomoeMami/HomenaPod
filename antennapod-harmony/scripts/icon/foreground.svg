@@ -18,22 +18,31 @@
     前景层（foreground.png）：核心图形 = 声波三环 + 人物（读作字母 A）
     - 1024×1024、PNG、非核心区域 100% 透明
     - 不自绘圆角、不留内间距（圆角由系统蒙版生成）
+
+    缩放补偿 scale(1.08)（围绕画布中心 (512,512)）：
+    单层图标时代图稿自带 rx=220 圆角 + 约 2% 内缩，系统给的"可见底板"约为瓦片的 92%；
+    改为分层图标后背景层必须满幅贴边（规范不允许资源内有内间距），底板变成 100%，
+    同样的图稿在瓦片里"内容/底板"比就小了约 8%（实测：旧版内容/底板≈0.92，新版≈0.84），
+    观感上像是内容缩小了。规范约束的是资源本身不得有内间距，所以补偿加在前景层，而不是给背景层加边距。
+    1.08 的安全余量：外环外缘 83.6%×1.08=90.3%、人物底部 91.3%，均未触到画布边缘。
   -->
-  <circle cx="512" cy="480" r="200" fill="none" stroke="url(#waveGradient)" stroke-width="56" opacity="0.9"/>
-  <circle cx="512" cy="480" r="300" fill="none" stroke="url(#waveGradient)" stroke-width="56" opacity="0.7"/>
-  <circle cx="512" cy="480" r="400" fill="none" stroke="url(#waveGradient)" stroke-width="56" opacity="0.4"/>
+  <g transform="translate(512 512) scale(1.08) translate(-512 -512)">
+    <circle cx="512" cy="480" r="200" fill="none" stroke="url(#waveGradient)" stroke-width="56" opacity="0.9"/>
+    <circle cx="512" cy="480" r="300" fill="none" stroke="url(#waveGradient)" stroke-width="56" opacity="0.7"/>
+    <circle cx="512" cy="480" r="400" fill="none" stroke="url(#waveGradient)" stroke-width="56" opacity="0.4"/>
 
-  <!-- 人物柔影（位于人物主体之下） -->
-  <g fill="#000000" fill-opacity="0.2" stroke="#000000" stroke-opacity="0.2" filter="url(#innerShadow)">
-    <circle cx="512" cy="420" r="64"/>
-    <path d="M 340 870 L 512 420 L 684 870" fill="none" stroke-width="68" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M 390 660 Q 512 780 634 660" fill="none" stroke-width="68" stroke-linecap="round"/>
-  </g>
+    <!-- 人物柔影（位于人物主体之下） -->
+    <g fill="#000000" fill-opacity="0.2" stroke="#000000" stroke-opacity="0.2" filter="url(#innerShadow)">
+      <circle cx="512" cy="420" r="64"/>
+      <path d="M 340 870 L 512 420 L 684 870" fill="none" stroke-width="68" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 390 660 Q 512 780 634 660" fill="none" stroke-width="68" stroke-linecap="round"/>
+    </g>
 
-  <!-- 人物主体：头部 + 身体 + 双臂 -->
-  <g fill="#FFFFFF" stroke="#FFFFFF">
-    <circle cx="512" cy="420" r="64"/>
-    <path d="M 340 870 L 512 420 L 684 870" fill="none" stroke-width="68" stroke-linecap="round" stroke-linejoin="round"/>
-    <path d="M 390 660 Q 512 780 634 660" fill="none" stroke-width="68" stroke-linecap="round"/>
+    <!-- 人物主体：头部 + 身体 + 双臂 -->
+    <g fill="#FFFFFF" stroke="#FFFFFF">
+      <circle cx="512" cy="420" r="64"/>
+      <path d="M 340 870 L 512 420 L 684 870" fill="none" stroke-width="68" stroke-linecap="round" stroke-linejoin="round"/>
+      <path d="M 390 660 Q 512 780 634 660" fill="none" stroke-width="68" stroke-linecap="round"/>
+    </g>
   </g>
 </svg>
