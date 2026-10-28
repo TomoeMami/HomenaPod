@@ -37,4 +37,24 @@ export class PlaybackSpeedPolicy {
     }
     return '';
   }
+
+  /**
+   * 每单集实际生效倍速：订阅显式值优先，其次全局默认，最后 1.0。
+   *
+   * 「0」才表示订阅未设置（`feed_playback_speed` 的缺省值）；**显式 1.00x 是有效设置**。
+   * 旧实现把 1.0 也当成未设置，于是「订阅显式设 1.00x + 全局默认 1.5x」会播成 1.5x，
+   * 而队列信息条却按 1.0 折算 —— 播放与显示同时错（第 65 轮修）。
+   *
+   * @param feedSpeed 订阅设置里的原始倍速（0 = 未设置）
+   * @param globalSpeed 全局默认倍速（偏好值；0/非法时回落 1.0）
+   */
+  static resolveEffectiveSpeed(feedSpeed: number, globalSpeed: number): number {
+    if (Number.isFinite(feedSpeed) && feedSpeed > 0) {
+      return feedSpeed;
+    }
+    if (Number.isFinite(globalSpeed) && globalSpeed > 0) {
+      return globalSpeed;
+    }
+    return 1.0;
+  }
 }

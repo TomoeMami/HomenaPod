@@ -271,7 +271,7 @@ export class QueueEngine {
       return undefined;
     }
     let feedTitle: string = 'Podcast';
-    let speed: number = 1.0;
+    let speed: number = 0; // 0 = 订阅未设置，load 时回落全局默认倍速
     let skipIntro: number = 0;
     let skipEnding: number = 0;
     let volumeAdaption: number = 0;
@@ -280,7 +280,8 @@ export class QueueEngine {
     const feed: Feed | undefined = await FeedRepository.getById(item.feedId);
     if (feed !== undefined) {
       feedTitle = feed.getTitle();
-      speed = feed.feedPlaybackSpeed > 0 ? feed.feedPlaybackSpeed : 1.0;
+      // 原样带出（0 = 未设置）：不能折成 1.0，否则订阅显式 1.00x 会被全局默认倍速覆盖
+      speed = feed.feedPlaybackSpeed;
       skipIntro = feed.feedSkipIntro;
       skipEnding = feed.feedSkipEnding;
       volumeAdaption = feed.feedVolumeAdaption;

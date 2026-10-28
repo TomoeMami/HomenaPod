@@ -90,6 +90,8 @@ struct FeedDetailPage {
   private downloadToken: number = -1;
   /** 滑动动作偏好变化订阅 token */
   private swipeToken: number = -1;
+  /** 订阅设置保存（排序 / 过滤器 / 倍速等）订阅 token */
+  private feedUpdateToken: number = -1;
   private messageTimerId: number = -1;
 
   build() {
@@ -939,6 +941,16 @@ struct FeedDetailPage {
     this.swipeToken = EventHub.subscribe(EventType.SWIPE_ACTIONS_CHANGED, (data: object) => {
       this.loadSwipeActions();
     });
+    // 订阅设置页保存：本页持有的是打开时的 Feed 快照，不重读的话
+    // 「行内播放已下载单集」会用旧倍速、排序 / 过滤器也不生效（返回本页不会重走 aboutToAppear）。
+    // `feedId = 0` 约定为「整库」（批量设速等），也一并重读。
+    this.feedUpdateToken = EventHub.subscribe(EventType.FEED_UPDATE, (data: object) => {
+      const record: Record<string, number> = data as Record<string, number>;
+      const feedId: number | undefined = record['feedId'];
+      if (this.feed !== undefined && (feedId === undefined || feedId === 0 || feedId === this.feed.id)) {
+        this.load(this.feed.id);
+      }
+    });
   }
 
   aboutToDisappear(): void {
@@ -949,6 +961,10 @@ struct FeedDetailPage {
     if (this.swipeToken >= 0) {
       EventHub.unsubscribeToken(this.swipeToken);
       this.swipeToken = -1;
+    }
+    if (this.feedUpdateToken >= 0) {
+      EventHub.unsubscribeToken(this.feedUpdateToken);
+      this.feedUpdateToken = -1;
     }
     if (this.messageTimerId >= 0) {
       clearTimeout(this.messageTimerId);
@@ -1206,7 +1222,8 @@ struct FeedDetailPage {
       item.media.duration,
       item.media.position,
       item.media.getMediaType(),
-      feed !== undefined && feed.feedPlaybackSpeed > 0 ? feed.feedPlaybackSpeed : 1.0,
+      // 原样带出（0 = 订阅未设置）：不能折成 1.0，否则显式 1.00x 会被全局默认覆盖
+      feed !== undefined ? feed.feedPlaybackSpeed : 0,
       feed !== undefined ? feed.feedSkipIntro : 0,
       feed !== undefined ? feed.feedSkipEnding : 0,
       feed !== undefined ? feed.feedVolumeAdaption : 0,

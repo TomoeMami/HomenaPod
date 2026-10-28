@@ -11,8 +11,11 @@ export class Playable {
   duration: number = 0;
   position: number = 0;
   mediaType: MediaType = MediaType.AUDIO;
-  /** 每 Feed 播放倍速（0/1.0 表示未设置） */
-  speed: number = 1.0;
+  /**
+   * 每 Feed 播放倍速：**0 = 订阅未设置**（load 时落到全局默认倍速），
+   * >0 一律视为订阅显式设置（**含显式 1.00x**，不能再把 1.0 当未设置）。
+   */
+  speed: number = 0;
   /** 每 Feed 跳片头秒数（0 表示关闭） */
   skipIntro: number = 0;
   /** 每 Feed 跳片尾秒数（0 表示关闭） */
@@ -24,7 +27,7 @@ export class Playable {
 
   constructor(id: number, feedItemId: number, title: string, feedTitle: string, downloadUrl: string,
               localFileUrl: string, duration: number, position: number, mediaType: MediaType,
-              speed: number = 1.0, skipIntro: number = 0, skipEnding: number = 0,
+              speed: number = 0, skipIntro: number = 0, skipEnding: number = 0,
               volumeAdaption: number = 0, imageUrl: string = '') {
     this.id = id;
     this.feedItemId = feedItemId;

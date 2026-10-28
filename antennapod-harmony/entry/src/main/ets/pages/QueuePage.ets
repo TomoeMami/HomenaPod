@@ -162,6 +162,8 @@ export struct QueuePage {
   private swipeToken: number = -1;
   /** 显示类偏好（显示剩余时间 / 倍速折算）变化订阅 */
   private prefsToken: number = -1;
+  /** 订阅设置（每订阅倍速等）变化订阅 */
+  private feedUpdateToken: number = -1;
   /** 标题栏刷新与滑动刷新共用一个「刷新中」状态，需要防重入（上游 runOnceOrAsk） */
   private refreshingNow: boolean = false;
   /** 顶部提示自动消失（上游是 Snackbar 语义） */
@@ -1412,6 +1414,11 @@ export struct QueuePage {
       this.showRemainingTime = UserPreferences.getShowRemainingTime();
       this.infoTick = this.infoTick + 1;
     });
+    // 订阅设置里改了每订阅倍速（单订阅保存 / 订阅页批量设速）：feedSpeeds 只是缓存，
+    // 必须重读后信息条的「剩余时长」才会按新倍速折算（页签常驻，不会重走 aboutToAppear）
+    this.feedUpdateToken = EventHub.subscribe(EventType.FEED_UPDATE, () => {
+      this.reloadFeedSpeeds();
+    });
   }
 
   aboutToDisappear(): void {
@@ -1450,6 +1457,10 @@ export struct QueuePage {
     if (this.prefsToken >= 0) {
       EventHub.unsubscribeToken(this.prefsToken);
       this.prefsToken = -1;
+    }
+    if (this.feedUpdateToken >= 0) {
+      EventHub.unsubscribeToken(this.feedUpdateToken);
+      this.feedUpdateToken = -1;
     }
     if (this.messageTimerId >= 0) {
       clearTimeout(this.messageTimerId);
@@ -1613,6 +1624,16 @@ export struct QueuePage {
     } finally {
       this.loading = false;
     }
+  }
+
+  /** FEED_UPDATE：重读队列涉及订阅的倍速缓存，并让信息条的剩余时长重算 */
+  private async reloadFeedSpeeds(): Promise<void> {
+    try {
+      await this.loadFeeds(this.items);
+    } catch (error) {
+      // 重读失败保留旧缓存：只影响剩余时长显示，不影响队列本身
+    }
+    this.infoTick = this.infoTick + 1;
   }
 
   /** 队列涉及的全部订阅（标题 / 封面 / 倍速），未订阅的单集也要拿到封面与倍速 */

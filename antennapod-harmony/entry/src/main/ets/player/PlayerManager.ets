@@ -7,6 +7,7 @@ import { UserPreferences } from '../prefs/UserPreferences';
 import { Logger } from '../utils/Logger';
 import { BackgroundPlaybackGuard } from './BackgroundPlaybackGuard';
 import { DeviceClasses, DeviceChangeReasons, OutputDevicePolicy } from './OutputDevicePolicy';
+import { PlaybackSpeedPolicy } from './PlaybackSpeedPolicy';
 import { EventHub, EventType, PlaybackPositionData, PlayerErrorData, SpeedChangedData, PlayerStatusData, PlayerTrackData } from '../events/EventHub';
 
 const TAG: string = 'PlayerManager';
@@ -147,6 +148,12 @@ export class PlayerManager {
     }
     PlayerManager.status = PlayerStatus.PREPARING;
     await player.prepare();
+    // `prepare()` 的 promise 在**在线流**上可能先于真正的 prepared 状态返回（慢速源实测差 1–2s）：
+    // 此时后续 setVolume / setSpeed / seek 会被 AVPlayer 以
+    // "Operate Not Permit ... unsupport volume/speed operation" 拒绝，autoplay 也会因为
+    // play() 的前置状态判断不成立而空转（用户侧=「在线单集点播放没反应」，倍速自然也下不去）。
+    // 这里再等一次真正的 prepared 状态；本地源通常已满足，不增加延迟。
+    await PlayerManager.waitForState(player, 'prepared', 30000);
     PlayerManager.status = PlayerStatus.PREPARED;
     // 在 waitForState 之后再注册全局状态监听：
     // waitForState 内部会 off('stateChange', handler)，若提前注册会被一并移除，
@@ -170,12 +177,13 @@ export class PlayerManager {
     if (target > 0) {
       PlayerManager.seek(target);
     }
-    if (playable.speed > 0 && playable.speed !== 1.0) {
-      PlayerManager.setSpeed(playable.speed, 'load:feed');
-    } else {
-      // 无 Feed 级倍速时用用户默认倍速：否则播放页设过的倍速会在下次 prepare（如单集循环）被打回 1.0
-      PlayerManager.setSpeed(UserPreferences.getDefaultPlaybackSpeed(), 'load:global');
-    }
+    // 倍速优先级：订阅显式值（>0，**含显式 1.00x**）→ 全局默认 → 1.0。
+    // 只有 0 才表示「订阅未设置」：旧实现把 playable.speed === 1.0 也当成未设置，
+    // 于是订阅显式设 1.00x 时会被全局默认（如 1.5x）覆盖，而队列信息条又按 1.0 折算。
+    const feedSpeed: number = playable.speed;
+    const effectiveSpeed: number = PlaybackSpeedPolicy.resolveEffectiveSpeed(
+      feedSpeed, UserPreferences.getDefaultPlaybackSpeed());
+    PlayerManager.setSpeed(effectiveSpeed, feedSpeed > 0 ? 'load:feed' : 'load:global');
     if (autoplay) {
       PlayerManager.play();
     }
@@ -390,11 +398,18 @@ export class PlayerManager {
    * 是否真的生效由 {@link handleSpeedDone} 校验。
    */
   static setSpeed(speed: number, source: string = 'unknown'): void {
-    PlayerManager.intendedSpeed = speed;
-    PlayerManager.speed = speed;
+    let value: number = speed;
+    // 防御损坏的偏好 / 外部输入：`toPlaybackSpeed()` 用 `<=` 分档，
+    // 0 / 负数会落到 0.5x、NaN 会落到 2.0x（都表现为「倍速自己变了」且难归因）
+    if (!Number.isFinite(value) || value <= 0) {
+      Logger.warn(TAG, 'setSpeed invalid request ' + speed + ' -> 1.0 src=' + source);
+      value = 1.0;
+    }
+    PlayerManager.intendedSpeed = value;
+    PlayerManager.speed = value;
     PlayerManager.speedRetried = false;
-    PlayerManager.applySpeedToPlayer(speed, source);
-    const speedData: SpeedChangedData = { speed: speed };
+    PlayerManager.applySpeedToPlayer(value, source);
+    const speedData: SpeedChangedData = { speed: value };
     EventHub.publish(EventType.SPEED_CHANGED, speedData);
   }
 

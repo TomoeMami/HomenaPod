@@ -164,10 +164,7 @@ struct FeedSettingsPage {
               SectionHeader({ title: $r('app.string.settings_section_playback') })
               RowCard({ pad: 0, radius: DesignTokens.RADIUS_ROW }) {
                 Column() {
-                  this.navRow($r('sys.symbol.fast'), $r('app.string.setting_playback_speed'), this.speedLabel(),
-                    () => {
-                      this.cycleSpeed();
-                    })
+                  this.speedNav()
                   this.rowDivider()
                   this.navRow($r('sys.symbol.headphones'), $r('app.string.setting_volume_adaption'),
                     this.volumeLabel(), () => {
@@ -362,6 +359,53 @@ struct FeedSettingsPage {
     .alignItems(VerticalAlign.Center)
     .onClick(() => {
       onTap();
+    })
+  }
+
+  /**
+   * 播放倍速行：图标 + 标题 + 当前值 + 箭头，点击循环切换（点「保存」落库）。
+   *
+   * 值必须在 builder 内部读 `this.feed!.feedPlaybackSpeed`：`@Builder` 的参数是**按值传递**，
+   * 旧写法把 `this.speedLabel()` 传给 navRow，点一次只改了内存里的值、右侧「未设置 / 1.50x」
+   * 不会刷新（第 40 轮设置页排序、第 56 轮播放页倍速、第 65 轮设置页默认倍速都是同一个坑）。
+   */
+  @Builder
+  speedNav() {
+    Row({ space: DesignTokens.SPACE_L }) {
+      SymbolGlyph($r('sys.symbol.fast'))
+        .fontSize(DesignTokens.ICON_XL)
+        .fontColor([$r('app.color.text_secondary')])
+
+      Column({ space: 2 }) {
+        Text($r('app.string.setting_playback_speed'))
+          .fontSize(DesignTokens.FONT_BODY)
+          .fontColor($r('app.color.text_primary'))
+          .width('100%')
+        Text(this.speedLabel())
+          .fontSize(DesignTokens.FONT_PARAGRAPH)
+          .fontColor($r('app.color.text_secondary'))
+          .maxLines(1)
+          .textOverflow({ overflow: TextOverflow.Ellipsis })
+          .width('100%')
+      }
+      .layoutWeight(1)
+      .alignItems(HorizontalAlign.Start)
+
+      SymbolGlyph($r('sys.symbol.chevron_forward'))
+        .fontSize(DesignTokens.ICON_M)
+        .fontColor([$r('app.color.text_disabled')])
+    }
+    .width('100%')
+    .constraintSize({ minHeight: ROW_MIN_HEIGHT })
+    .padding({
+      left: DesignTokens.SPACE_L,
+      right: DesignTokens.SPACE_L,
+      top: DesignTokens.SPACE_M,
+      bottom: DesignTokens.SPACE_M
+    })
+    .alignItems(VerticalAlign.Center)
+    .onClick(() => {
+      this.cycleSpeed();
     })
   }
 
@@ -580,7 +624,12 @@ struct FeedSettingsPage {
   cycleSpeed(): void {
     const options: number[] = [0].concat(PlayerManager.SPEED_PRESETS);
     const current: number = this.feed!.feedPlaybackSpeed;
-    const index: number = options.indexOf(current);
+    let index: number = options.indexOf(current);
+    // 非档位值（如导入备份里的 2.50x / 1.10x）不能让 indexOf=-1 落回「未设置」：
+    // 照设置页默认倍速同款，回落到 1.00x 的位置再往后切一档
+    if (index < 0) {
+      index = options.indexOf(1.0);
+    }
     this.feed!.feedPlaybackSpeed = options[(index + 1) % options.length];
   }
 

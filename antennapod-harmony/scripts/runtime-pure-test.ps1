@@ -412,6 +412,18 @@ assert.strictEqual(PlaybackSpeedPolicy.rejectReason(0, SPEED_MIN, SPEED_MAX), 'b
 assert.strictEqual(PlaybackSpeedPolicy.rejectReason(3, SPEED_MIN, SPEED_MAX), 'above-max(2)');
 assert.strictEqual(PlaybackSpeedPolicy.rejectReason(Number.NaN, SPEED_MIN, SPEED_MAX), 'not-a-finite-number');
 
+// ---- 每单集有效倍速：0 = 订阅未设置；显式 1.00x 必须保留（第 65 轮）----
+// 回归背景：旧实现把 playable.speed === 1.0 也当「未设置」，全局默认 1.5x 时
+// 「订阅显式 1.00x」会播成 1.5x，而队列信息条又按 1.0 折算 —— 播放与显示同时错。
+assert.strictEqual(PlaybackSpeedPolicy.resolveEffectiveSpeed(0, 1.5), 1.5);    // 未设置 → 全局
+assert.strictEqual(PlaybackSpeedPolicy.resolveEffectiveSpeed(1.0, 1.5), 1.0);  // 显式 1.00x 保留
+assert.strictEqual(PlaybackSpeedPolicy.resolveEffectiveSpeed(2.0, 1.0), 2.0);  // 显式值优先
+assert.strictEqual(PlaybackSpeedPolicy.resolveEffectiveSpeed(0.75, 2.0), 0.75);
+assert.strictEqual(PlaybackSpeedPolicy.resolveEffectiveSpeed(Number.NaN, 1.25), 1.25);
+assert.strictEqual(PlaybackSpeedPolicy.resolveEffectiveSpeed(-1, 1.5), 1.5);
+assert.strictEqual(PlaybackSpeedPolicy.resolveEffectiveSpeed(0, 0), 1.0);      // 都不可用 → 1.0
+assert.strictEqual(PlaybackSpeedPolicy.resolveEffectiveSpeed(0, Number.NaN), 1.0);
+
 // ---- 节目详情（shownotes）：去标签保留换行 + 时间码识别 ----
 // 换行：旧的 PlayerPage.plainText 把标签换成空格后 `\s+` → ' '，<br>/<p>/真实换行全被吃掉
 assert.strictEqual(HtmlCleaner.stripHtml('a<br>b'), 'a\nb');
