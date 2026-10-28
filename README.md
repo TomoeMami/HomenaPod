@@ -134,6 +134,10 @@ bash antennapod-harmony/scripts/env-report.sh      # 环境与工具链诊断
 
 > 已知事项：本项目使用**未签名 / 自签名** HAP 在模拟器上验证，真机安装需按上面的「构建」一节配置签名。
 
+## 友情链接
+
+- [**BiliRadio**](https://github.com/Link-Z-233/BiliRadio) —— 另一款 HarmonyOS NEXT 上的播客客户端，以 Bilibili 内容作为播客源，与本项目同属「用鸿蒙原生方式收听节目」的实践，欢迎一并关注。
+
 ## 开源协议
 
 本项目与上游 **AntennaPod 保持一致，采用 GNU General Public License v3.0（GPL-3.0）** 授权，许可全文见仓库根目录的 [`LICENSE`](LICENSE)（与上游 `LICENSE` 完全一致）。
